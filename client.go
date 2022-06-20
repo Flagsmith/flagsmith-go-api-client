@@ -65,17 +65,11 @@ func (c *Client) GetFeatureState(featureStateID int64) (*FeatureState, error) {
 		fmt.Println("error -> ", err)
 		return nil, err
 	}
-	// TODO: Add error handling
-	// if response.IsSuccess{
+	if resp.IsSuccess() {
+		return nil, fmt.Errorf("Error getting feature state: %s", resp.Status())
 
-	// }
+	}
 	featureState := resp.Result().(*FeatureState)
-	// fmt.Println(" response -> ", resp)
-
-	// fmt.Println("error -> ", err)
-	// fmt.Println("feature State-> :?", featureState.ID)
-	// fmt.Println("feature State-> :?", featureState.FeatureStateValue)
-
 	return featureState, nil
 
 }
