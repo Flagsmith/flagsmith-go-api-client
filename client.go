@@ -24,7 +24,7 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 
 }
 
-func (c *Client) GetFeatureStates(environmentID int) *[]FeatureState {
+func (c *Client) GetFeatureStates(environmentID int) (*[]FeatureState, error) {
 	url := fmt.Sprintf("%s/features/featurestates/", c.baseURL)
 	var getFeatureStatesResponse struct {
 		Results *[]FeatureState `json:"results"`
@@ -35,60 +35,56 @@ func (c *Client) GetFeatureStates(environmentID int) *[]FeatureState {
 			"environment": strconv.Itoa(environmentID),
 		}).
 		Get(url)
-
 	fmt.Println("error -> ", err)
-	// TODO: Add error handling
-	// if response.IsSuccess{
-
-	// }
-
+	if err != nil {
+		return nil, err
+	}
 	error := json.Unmarshal(resp.Body(), &getFeatureStatesResponse)
+	if error != nil {
+		fmt.Println("error reading body to json -> ", error)
+		return nil, error
+	}
 
-	fmt.Println("error -> ", error)
 	featureStates := getFeatureStatesResponse.Results
 
 	fmt.Println(" response -> ", getFeatureStatesResponse)
 	fmt.Println("feature State-> :?", featureStates)
 
-	return featureStates
+	return featureStates, nil
 
 }
 
-//TODO: remove environment_id
-func (c *Client) GetFeatureState(featureStateID int, environmentID int) *FeatureState {
+func (c *Client) GetFeatureState(featureStateID int64) (*FeatureState, error) {
 	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureStateID)
 	fmt.Println("making request with", url)
 
 	resp, err := c.client.R().
-		SetQueryParams(map[string]string{
-			"environment": strconv.Itoa(environmentID),
-		}).
 		SetResult(FeatureState{}).
 		Get(url)
+	if err != nil {
+		fmt.Println("error -> ", err)
+		return nil, err
+	}
 	// TODO: Add error handling
 	// if response.IsSuccess{
 
 	// }
 	featureState := resp.Result().(*FeatureState)
-	fmt.Println(" response -> ", resp)
+	// fmt.Println(" response -> ", resp)
 
-	fmt.Println("error -> ", err)
-	fmt.Println("feature State-> :?", featureState.ID)
-	fmt.Println("feature State-> :?", featureState.FeatureStateValue)
-	return featureState
+	// fmt.Println("error -> ", err)
+	// fmt.Println("feature State-> :?", featureState.ID)
+	// fmt.Println("feature State-> :?", featureState.FeatureStateValue)
+
+	return featureState, nil
 
 }
 
-//TODO: remove environment_id
-func (c *Client) DeleteFeatureState(featureStateID int, environmentID int) error {
+func (c *Client) DeleteFeatureState(featureStateID int) error {
 	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureStateID)
 	fmt.Println("making request with", url)
 
-	resp, err := c.client.R().
-		SetQueryParams(map[string]string{
-			"environment": strconv.Itoa(environmentID),
-		}).
-		Delete(url)
+	resp, err := c.client.R().Delete(url)
 	// TODO: Add error handling
 	// if response.IsSuccess{
 
@@ -99,8 +95,23 @@ func (c *Client) DeleteFeatureState(featureStateID int, environmentID int) error
 	fmt.Println("error -> ", err)
 	return err
 
-	// fmt.Println("feature State-> :?", featureState.ID)
-	// fmt.Println("feature State-> :?", featureState.FeatureStateValue)
-	// return featureState
+}
 
+// Update Feature State
+func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, error) {
+	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureState.ID)
+
+	resp, err := c.client.R().SetBody(featureState).SetResult(FeatureState{}).Put(url)
+
+	if err != nil {
+		return nil, err
+	}
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("Error updating feature state: %s", resp.Status())
+	}
+	updatedFeatureState, ok := resp.Result().(*FeatureState)
+	if !ok {
+		return nil, fmt.Errorf("unable to cast result to FeatureState")
+	}
+	return updatedFeatureState, nil
 }
