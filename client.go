@@ -18,6 +18,7 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 	c := &Client{master_api_key: masterAPIKey, baseURL: baseURL, client: resty.New()}
 	c.client.SetHeaders(map[string]string{
 		"Accept":        "application/json",
+		"Content-type":  "application/json",
 		"Authorization": "Api-Key " + c.master_api_key,
 	})
 	return c
@@ -54,22 +55,27 @@ func (c *Client) GetFeatureStates(environmentID int) (*[]FeatureState, error) {
 
 }
 
-func (c *Client) GetFeatureState(featureStateID int64) (*FeatureState, error) {
-	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureStateID)
+func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureName string) (*FeatureState, error) {
+	url := fmt.Sprintf("%s/environments/%s/featurestates/", c.baseURL, environmentAPIKey)
 	fmt.Println("making request with", url)
-
+	result := struct {
+		Results []*FeatureState `json:"results"`
+	}{}
 	resp, err := c.client.R().
-		SetResult(FeatureState{}).
+		SetQueryParams(map[string]string{
+			"feature_name": featureName,
+		}).
+		SetResult(&result).
 		Get(url)
+
 	if err != nil {
-		fmt.Println("error -> ", err)
 		return nil, err
 	}
-	if resp.IsSuccess() {
+	if !resp.IsSuccess() {
 		return nil, fmt.Errorf("Error getting feature state: %s", resp.Status())
 
 	}
-	featureState := resp.Result().(*FeatureState)
+	featureState := result.Results[0]
 	return featureState, nil
 
 }
@@ -94,18 +100,13 @@ func (c *Client) DeleteFeatureState(featureStateID int) error {
 // Update Feature State
 func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, error) {
 	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureState.ID)
-
-	resp, err := c.client.R().SetBody(featureState).SetResult(FeatureState{}).Put(url)
-
+	updatedFeatureState := FeatureState{}
+	resp, err := c.client.R().SetBody(featureState).SetResult(&updatedFeatureState).Put(url)
 	if err != nil {
 		return nil, err
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf("Error updating feature state: %s", resp.Status())
 	}
-	updatedFeatureState, ok := resp.Result().(*FeatureState)
-	if !ok {
-		return nil, fmt.Errorf("unable to cast result to FeatureState")
-	}
-	return updatedFeatureState, nil
+	return &updatedFeatureState, nil
 }
