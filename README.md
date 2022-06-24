@@ -4,4 +4,4 @@
 our hosted API, deploy to your own private cloud, or run on-premise.
 
 # Flagsmith Go Admin API Client
-This project provides a very(currently) limited access to the Flagsmith Admin API's.
+This project provides a very(currently) limited access to the Flagsmith Admin APIs using Master API Key.
