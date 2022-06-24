@@ -23,6 +23,7 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 
 }
 
+// Get the feature state associated with the environment for a given feature
 func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureName string) (*FeatureState, error) {
 	url := fmt.Sprintf("%s/environments/%s/featurestates/", c.baseURL, environmentAPIKey)
 	fmt.Println("making request with", url)
@@ -48,7 +49,7 @@ func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureNam
 
 }
 
-// Update Feature State
+// Update the feature state
 func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, error) {
 	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureState.ID)
 	updatedFeatureState := FeatureState{}

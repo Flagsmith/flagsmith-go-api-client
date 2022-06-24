@@ -12,9 +12,6 @@ type FeatureStateValue struct {
 	BooleanValue *bool   `json:"boolean_value"`
 }
 
-// func (fsv *FeatureStateValue) UnmarshalJSON(b []byte) error {
-// 	var raw map[string]interface{}
-
 type FeatureState struct {
 	ID                int64              `json:"id"`
 	FeatureStateValue *FeatureStateValue `json:"feature_state_value"`
