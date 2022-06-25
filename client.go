@@ -6,6 +6,8 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+const BaseAPIURL = "https://api.flagsmith.com/api/v1"
+
 type Client struct {
 	master_api_key string
 	baseURL        string
@@ -13,6 +15,9 @@ type Client struct {
 }
 
 func NewClient(masterAPIKey string, baseURL string) *Client {
+	if baseURL == "" {
+		baseURL = BaseAPIURL
+	}
 	c := &Client{master_api_key: masterAPIKey, baseURL: baseURL, client: resty.New()}
 	c.client.SetHeaders(map[string]string{
 		"Accept":        "application/json",
