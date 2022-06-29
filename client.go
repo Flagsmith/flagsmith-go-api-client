@@ -31,7 +31,6 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 // Get the feature state associated with the environment for a given feature
 func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureName string) (*FeatureState, error) {
 	url := fmt.Sprintf("%s/environments/%s/featurestates/", c.baseURL, environmentAPIKey)
-	fmt.Println("making request with", url)
 	result := struct {
 		Results []*FeatureState `json:"results"`
 	}{}
@@ -46,8 +45,14 @@ func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureNam
 		return nil, err
 	}
 	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("Error getting feature state: %s", resp.Status())
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature state: %s", resp.Status())
 
+	}
+	if len(result.Results) != 1 {
+		if len(result.Results) == 0 {
+			return nil, fmt.Errorf("flagsmithapi: No feature state found for feature %s", featureName)
+		}
+		return nil, fmt.Errorf("flagsmithapi: Multiple feature states found for feature %s", featureName)
 	}
 	featureState := result.Results[0]
 	return featureState, nil
@@ -63,7 +68,7 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, 
 		return nil, err
 	}
 	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("Error updating feature state: %s", resp.Status())
+		return nil, fmt.Errorf("flagsmithapi: Error updating feature state: %s", resp.Status())
 	}
 	return &updatedFeatureState, nil
 }
