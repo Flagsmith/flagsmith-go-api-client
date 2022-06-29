@@ -39,7 +39,7 @@ func (fs *FeatureState) UnmarshalJSON(data []byte) error {
 	fs.Feature = obj.Feature
 	fs.Environment = obj.Environment
 
-	// If the feature state value is a struct then unmarshal, set
+	// If the feature state value is a struct(i.e: we are using `/features/featurestates/` endpoint) then unmarshal, set
 	// and exit
 	featureStateValue := FeatureStateValue{}
 	err = json.Unmarshal(obj.FeatureStateValue, &featureStateValue)
@@ -48,6 +48,7 @@ func (fs *FeatureState) UnmarshalJSON(data []byte) error {
 		return nil
 
 	}
+	// else(i.e: we are using `/environments/<env_key>/featurestates/` endpoint) convert the feature state value to struct, set and exit
 	var fsValueRaw interface{}
 	err = json.Unmarshal(obj.FeatureStateValue, &fsValueRaw)
 	if err != nil {
