@@ -44,15 +44,9 @@ func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureNam
 	if err != nil {
 		return nil, err
 	}
-	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error getting feature state: %s", resp.Status())
+	if !resp.IsSuccess() || len(result.Results) != 1 {
+		return nil, fmt.Errorf("flagsmithapi: Failed to get feature state")
 
-	}
-	if len(result.Results) != 1 {
-		if len(result.Results) == 0 {
-			return nil, fmt.Errorf("flagsmithapi: No feature state found for feature %s", featureName)
-		}
-		return nil, fmt.Errorf("flagsmithapi: Multiple feature states found for feature %s", featureName)
 	}
 	featureState := result.Results[0]
 	return featureState, nil
