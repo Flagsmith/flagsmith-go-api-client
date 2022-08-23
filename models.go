@@ -5,6 +5,13 @@ import (
 	"log"
 )
 
+type Project struct {
+	ID           int64  `json:"id"`
+	UUID         string `json:"uuid"`
+	Name         string `json:"name"`
+	Organisation int64  `json:"organisation"`
+}
+
 type FeatureStateValue struct {
 	Type         string  `json:"type"`
 	StringValue  *string `json:"string_value"`

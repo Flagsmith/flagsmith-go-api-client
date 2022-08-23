@@ -66,3 +66,24 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, 
 	}
 	return &updatedFeatureState, nil
 }
+
+func (c *Client) GetProject(projectUUID string) (*Project, error) {
+	url := fmt.Sprintf("%s/projects/", c.baseURL)
+	result := []*Project{}
+	resp, err := c.client.R().
+		SetQueryParams(map[string]string{
+			"uuid": projectUUID,
+		}).
+		SetResult(&result).
+		Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+	if !resp.IsSuccess() || len(result) != 1 {
+		return nil, fmt.Errorf("flagsmithapi: Failed to get project")
+	}
+	project := result[0]
+	return project, nil
+
+}

@@ -154,3 +154,45 @@ func TestUpdateFeatureState(t *testing.T) {
 	assert.Equal(t, nilBoolPointer, fs.FeatureStateValue.BooleanValue)
 
 }
+
+func TestGetProject(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+	getProjectResponseJson := `
+[
+    {
+        "id": 1,
+        "uuid": "10421b1f-5f29-4da9-abe2-30f88c07c9e8",
+        "name": "project-1",
+        "organisation": 1,
+        "hide_disabled_flags": false,
+        "enable_dynamo_db": true,
+        "migration_status": "NOT_APPLICABLE",
+        "use_edge_identities": false
+    }
+]
+`
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/projects/", req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		query := req.URL.Query()
+		assert.Equal(t, projectUUID, query.Get("uuid"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, getProjectResponseJson)
+		assert.NoError(t, err)
+	}))
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+	// When
+	project, err := client.GetProject(projectUUID)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(1), project.ID)
+	assert.Equal(t, projectUUID, project.UUID)
+	assert.Equal(t, "project-1", project.Name)
+}
