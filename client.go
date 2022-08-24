@@ -81,9 +81,39 @@ func (c *Client) GetProject(projectUUID string) (*Project, error) {
 		return nil, err
 	}
 	if !resp.IsSuccess() || len(result) != 1 {
-		return nil, fmt.Errorf("flagsmithapi: Failed to get project")
+		return nil, fmt.Errorf("flagsmithapi: Error getting project: %s", resp)
 	}
 	project := result[0]
 	return project, nil
 
+}
+
+func (c *Client) CreateFeature(feature *Feature) (*Feature, error) {
+	projectID := feature.ProjectID
+	if projectID == nil {
+		project, err := c.GetProject(feature.ProjectUUID)
+		if err != nil {
+			return nil, err
+		}
+		projectID = &project.ID
+	}
+
+	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, *projectID)
+
+	createdFeature := Feature{}
+	resp, err := c.client.R().SetBody(feature).SetResult(&createdFeature).Post(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error creating feature: %s", resp)
+	}
+
+	// set the project data on the feature
+	createdFeature.ProjectID = projectID
+	createdFeature.ProjectUUID = feature.ProjectUUID
+
+	return &createdFeature, nil
 }

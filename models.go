@@ -12,6 +12,20 @@ type Project struct {
 	Organisation int64  `json:"organisation"`
 }
 
+type Feature struct {
+	Name           string   `json:"name"`
+	ID             *int64   `json:"id,omitempty"`
+	Type           *string  `json:"type,omitempty"`
+	Description    *string  `json:"description,omitempty"`
+	InitialValue   *string  `json:"initial_value,omitempty"`
+	DefaultEnabled *bool    `json:"default_enabled,omitempty"`
+	IsArchived     *bool    `json:"is_archived,omitempty"`
+	Owners         *[]int64 `json:"owners,omitempty"`
+
+	ProjectUUID string `json:"-"`
+	ProjectID   *int64 `json:"-"`
+}
+
 type FeatureStateValue struct {
 	Type         string  `json:"type"`
 	StringValue  *string `json:"string_value"`
