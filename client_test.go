@@ -3,10 +3,10 @@ package flagsmithapi_test
 import (
 	"fmt"
 	"io"
-	"testing"
-
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 
@@ -74,6 +74,8 @@ func TestGetFeatureState(t *testing.T) {
 		_, err := io.WriteString(rw, GetFeatureStateJson)
 		assert.NoError(t, err)
 	}))
+	defer server.Close()
+
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
 	// When
@@ -133,6 +135,8 @@ func TestUpdateFeatureState(t *testing.T) {
 		_, err = io.WriteString(rw, UpdateFeatureStateResponseJson)
 		assert.NoError(t, err)
 	}))
+	defer server.Close()
+
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
 	updated_fs, err := client.UpdateFeatureState(&fs)
@@ -186,6 +190,8 @@ func TestGetProject(t *testing.T) {
 		_, err := io.WriteString(rw, GetProjectResponseJson)
 		assert.NoError(t, err)
 	}))
+	defer server.Close()
+
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
 	// When
@@ -248,6 +254,8 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 		assert.NoError(t, err)
 	})
 	server := httptest.NewServer(mux)
+	defer server.Close()
+
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
 	// When
@@ -350,6 +358,7 @@ func TestCreateMVFeature(t *testing.T) {
 		assert.NoError(t, err)
 
 	}))
+	defer server.Close()
 
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
@@ -380,4 +389,39 @@ func TestCreateMVFeature(t *testing.T) {
 	assert.Equal(t, int64(2), *(*createdFeature.MultivariateOptions)[1].ID)
 	assert.Equal(t, "value_two", *(*createdFeature.MultivariateOptions)[1].StringValue)
 
+}
+
+func TestDeleteFeature(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+
+	projectID := int64(1)
+	featureID := int64(1)
+
+	requestReceived := struct {
+		mu                sync.Mutex
+		isRequestReceived bool
+	}{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		requestReceived.mu.Lock()
+		requestReceived.isRequestReceived = true
+		requestReceived.mu.Unlock()
+
+		assert.Equal(t, "/api/v1/projects/1/features/1/", req.URL.Path)
+		assert.Equal(t, "DELETE", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.DeleteFeature(projectID, featureID)
+
+	// Then
+	requestReceived.mu.Lock()
+	assert.True(t, requestReceived.isRequestReceived)
+	assert.NoError(t, err)
 }

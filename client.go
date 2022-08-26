@@ -117,3 +117,18 @@ func (c *Client) CreateFeature(feature *Feature) (*Feature, error) {
 
 	return &createdFeature, nil
 }
+
+func (c *Client) DeleteFeature(projectID, featureID int64) error {
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, featureID)
+
+	resp, err := c.client.R().Delete(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error deleting feature: %s", resp)
+	}
+	return nil
+}
