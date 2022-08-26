@@ -5,7 +5,6 @@ import (
 	"io"
 	"testing"
 
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
@@ -126,7 +125,7 @@ func TestUpdateFeatureState(t *testing.T) {
 		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
 
 		// Test that we sent the correct body
-		rawBody, err := ioutil.ReadAll(req.Body)
+		rawBody, err := io.ReadAll(req.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedRequestBody, string(rawBody))
 
@@ -226,11 +225,12 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 	}
 	mux := http.NewServeMux()
 	expectedRequestBody := `{"name":"test_feature"}`
+
 	mux.HandleFunc("/api/v1/projects/1/features/", func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, "POST", req.Method)
 		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
 
-		rawBody, err := ioutil.ReadAll(req.Body)
+		rawBody, err := io.ReadAll(req.Body)
 		assert.Equal(t, expectedRequestBody, string(rawBody))
 		assert.NoError(t, err)
 
@@ -265,8 +265,119 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 
 	assert.Equal(t, nilStringPointer, createdFeature.InitialValue)
 
-	// assert.Equal(t, int64(1), *createdFeature.ProjectID)
-
+	assert.Equal(t, int64(1), *createdFeature.ProjectID)
 	assert.Equal(t, "10421b1f-5f29-4da9-abe2-30f88c07c9e8", createdFeature.ProjectUUID)
+
+}
+
+const CreateMVFeatureResponseJson = `
+{
+    "id": 1,
+    "name": "test_feature",
+    "type": "MULTIVARIATE",
+    "default_enabled": false,
+    "initial_value": null,
+    "created_date": "2022-08-26T03:33:41.492354Z",
+    "description": null,
+    "tags": [],
+    "multivariate_options": [
+        {
+            "id": 1,
+            "type": "unicode",
+            "integer_value": null,
+            "string_value": "value_one",
+            "boolean_value": null,
+            "default_percentage_allocation": 50.0
+        },
+        {
+            "id": 2,
+            "type": "unicode",
+            "integer_value": null,
+            "string_value": "value_two",
+            "boolean_value": null,
+            "default_percentage_allocation": 50.0
+        }
+    ],
+    "is_archived": false,
+    "owners": []
+}
+`
+
+func TestCreateMVFeature(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	featureType := "MULTIVARIATE"
+	projectID := int64(1)
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+	mvValueOne := "value_one"
+	mvValueTwo := "value_two"
+
+	mvOptions := []flagsmithapi.MultivariateOption{
+		{
+			Type:                        "unicode",
+			StringValue:                 &mvValueOne,
+			DefaultPercentageAllocation: float64(50),
+		},
+		{
+			Type:                        "unicode",
+			StringValue:                 &mvValueTwo,
+			DefaultPercentageAllocation: float64(50),
+		},
+	}
+
+	newFeature := flagsmithapi.Feature{
+		Name:                "test_feature",
+		ProjectUUID:         projectUUID,
+		ProjectID:           &projectID,
+		Type:                &featureType,
+		MultivariateOptions: &mvOptions,
+	}
+
+	expectedRequestBody := `{"name":"test_feature","type":"MULTIVARIATE","multivariate_options":[{"type":"unicode","string_value":"value_one","default_percentage_allocation":50},{"type":"unicode","string_value":"value_two","default_percentage_allocation":50}]}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/projects/1/features/", req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateMVFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	createdFeature, err := client.CreateFeature(&newFeature)
+
+	// Then
+	nilStringPointer := (*string)(nil)
+
+	assert.NoError(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), *createdFeature.ID)
+	assert.Equal(t, "test_feature", createdFeature.Name)
+
+	assert.Equal(t, "MULTIVARIATE", *createdFeature.Type)
+	assert.Equal(t, false, *createdFeature.DefaultEnabled)
+	assert.Equal(t, false, *createdFeature.IsArchived)
+
+	assert.Equal(t, nilStringPointer, createdFeature.InitialValue)
+
+	assert.Equal(t, int64(1), *createdFeature.ProjectID)
+	assert.Equal(t, "10421b1f-5f29-4da9-abe2-30f88c07c9e8", createdFeature.ProjectUUID)
+	assert.Equal(t, 2, len(*createdFeature.MultivariateOptions))
+
+	assert.Equal(t, int64(1), *(*createdFeature.MultivariateOptions)[0].ID)
+	assert.Equal(t, "value_one", *(*createdFeature.MultivariateOptions)[0].StringValue)
+
+	assert.Equal(t, int64(2), *(*createdFeature.MultivariateOptions)[1].ID)
+	assert.Equal(t, "value_two", *(*createdFeature.MultivariateOptions)[1].StringValue)
 
 }

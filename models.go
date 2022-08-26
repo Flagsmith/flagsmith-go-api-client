@@ -12,15 +12,25 @@ type Project struct {
 	Organisation int64  `json:"organisation"`
 }
 
+type MultivariateOption struct {
+	Type                        string  `json:"type"`
+	ID                          *int64  `json:"id,omitempty"`
+	IntegerValue                *int64  `json:"integer_value,omitempty"`
+	StringValue                 *string `json:"string_value,omitempty"`
+	BooleanValue                *bool   `json:"boolean_value,omitempty"`
+	DefaultPercentageAllocation float64 `json:"default_percentage_allocation"`
+}
+
 type Feature struct {
-	Name           string   `json:"name"`
-	ID             *int64   `json:"id,omitempty"`
-	Type           *string  `json:"type,omitempty"`
-	Description    *string  `json:"description,omitempty"`
-	InitialValue   *string  `json:"initial_value,omitempty"`
-	DefaultEnabled *bool    `json:"default_enabled,omitempty"`
-	IsArchived     *bool    `json:"is_archived,omitempty"`
-	Owners         *[]int64 `json:"owners,omitempty"`
+	Name                string                `json:"name"`
+	ID                  *int64                `json:"id,omitempty"`
+	Type                *string               `json:"type,omitempty"`
+	Description         *string               `json:"description,omitempty"`
+	InitialValue        *string               `json:"initial_value,omitempty"`
+	DefaultEnabled      *bool                 `json:"default_enabled,omitempty"`
+	IsArchived          *bool                 `json:"is_archived,omitempty"`
+	Owners              *[]int64              `json:"owners,omitempty"`
+	MultivariateOptions *[]MultivariateOption `json:"multivariate_options,omitempty"`
 
 	ProjectUUID string `json:"-"`
 	ProjectID   *int64 `json:"-"`
