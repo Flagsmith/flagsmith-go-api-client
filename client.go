@@ -88,34 +88,48 @@ func (c *Client) GetProject(projectUUID string) (*Project, error) {
 
 }
 
-func (c *Client) CreateFeature(feature *Feature) (*Feature, error) {
-	projectID := feature.ProjectID
-	if projectID == nil {
-		project, err := c.GetProject(feature.ProjectUUID)
-		if err != nil {
-			return nil, err
-		}
-		projectID = &project.ID
-	}
-
-	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, *projectID)
-
-	createdFeature := Feature{}
-	resp, err := c.client.R().SetBody(feature).SetResult(&createdFeature).Post(url)
+func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
+	url := fmt.Sprintf("%s/features/get-by-uuid/%s/", c.baseURL, featureUUID)
+	feature := Feature{}
+	resp, err := c.client.R().
+		SetQueryParams(map[string]string{
+			"uuid": featureUUID,
+		}).
+		SetResult(&feature).Get(url)
 
 	if err != nil {
 		return nil, err
 	}
 
 	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error creating feature: %s", resp)
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature: %s", resp)
+	}
+	return &feature, nil
+}
+
+func (c *Client) CreateFeature(feature *Feature) error {
+	projectID := feature.ProjectID
+	if projectID == nil {
+		project, err := c.GetProject(feature.ProjectUUID)
+		if err != nil {
+			return err
+		}
+		projectID = &project.ID
 	}
 
-	// set the project data on the feature
-	createdFeature.ProjectID = projectID
-	createdFeature.ProjectUUID = feature.ProjectUUID
+	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, *projectID)
 
-	return &createdFeature, nil
+	resp, err := c.client.R().SetBody(feature).SetResult(&feature).Post(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error creating feature: %s", resp)
+	}
+
+	return nil
 }
 
 func (c *Client) DeleteFeature(projectID, featureID int64) error {
@@ -130,5 +144,20 @@ func (c *Client) DeleteFeature(projectID, featureID int64) error {
 	if !resp.IsSuccess() {
 		return fmt.Errorf("flagsmithapi: Error deleting feature: %s", resp)
 	}
+	return nil
+}
+
+func (c *Client) UpdateFeature(feature *Feature) error {
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, *feature.ProjectID, *feature.ID)
+	resp, err := c.client.R().SetBody(feature).SetResult(feature).Put(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error updating feature: %s", resp)
+	}
+
 	return nil
 }

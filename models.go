@@ -23,17 +23,18 @@ type MultivariateOption struct {
 
 type Feature struct {
 	Name                string                `json:"name"`
+	UUID                string                `json:"uuid,omitempty"`
 	ID                  *int64                `json:"id,omitempty"`
 	Type                *string               `json:"type,omitempty"`
 	Description         *string               `json:"description,omitempty"`
-	InitialValue        *string               `json:"initial_value,omitempty"`
-	DefaultEnabled      *bool                 `json:"default_enabled,omitempty"`
-	IsArchived          *bool                 `json:"is_archived,omitempty"`
+	InitialValue        string                `json:"initial_value,omitempty"`
+	DefaultEnabled      bool                  `json:"default_enabled,omitempty"`
+	IsArchived          bool                  `json:"is_archived,omitempty"`
 	Owners              *[]int64              `json:"owners,omitempty"`
 	MultivariateOptions *[]MultivariateOption `json:"multivariate_options,omitempty"`
 
 	ProjectUUID string `json:"-"`
-	ProjectID   *int64 `json:"-"`
+	ProjectID   *int64 `json:"project,omitempty"`
 }
 
 type FeatureStateValue struct {
