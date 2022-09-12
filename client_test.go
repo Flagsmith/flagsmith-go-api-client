@@ -519,6 +519,5 @@ func TestGetFeature(t *testing.T) {
 	assert.Equal(t, "", feature.InitialValue)
 
 	assert.Equal(t, int64(1), *feature.ProjectID)
-	// assert.Equal(t, "10421b1f-5f29-4da9-abe2-30f88c07c9e8", feature.ProjectUUID)
 
 }
