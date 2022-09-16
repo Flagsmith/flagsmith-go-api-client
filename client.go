@@ -92,9 +92,6 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	url := fmt.Sprintf("%s/features/get-by-uuid/%s/", c.baseURL, featureUUID)
 	feature := Feature{}
 	resp, err := c.client.R().
-		SetQueryParams(map[string]string{
-			"uuid": featureUUID,
-		}).
 		SetResult(&feature).Get(url)
 
 	if err != nil {
