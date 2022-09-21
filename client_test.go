@@ -179,12 +179,9 @@ func TestGetProject(t *testing.T) {
 	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, "/api/v1/projects/", req.URL.Path)
+		assert.Equal(t, "/api/v1/projects/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", req.URL.Path)
 		assert.Equal(t, "GET", req.Method)
 		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
-
-		query := req.URL.Query()
-		assert.Equal(t, projectUUID, query.Get("uuid"))
 
 		rw.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(rw, GetProjectResponseJson)
@@ -246,10 +243,7 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	mux.HandleFunc("/api/v1/projects/", func(rw http.ResponseWriter, req *http.Request) {
-		query := req.URL.Query()
-		assert.Equal(t, projectUUID, query.Get("uuid"))
-
+	mux.HandleFunc("/api/v1/projects/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(rw, GetProjectResponseJson)
 		assert.NoError(t, err)
@@ -490,9 +484,6 @@ func TestGetFeature(t *testing.T) {
 		assert.Equal(t, "/api/v1/features/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", req.URL.Path)
 		assert.Equal(t, "GET", req.Method)
 		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
-
-		query := req.URL.Query()
-		assert.Equal(t, featureUUID, query.Get("uuid"))
 
 		rw.Header().Set("Content-Type", "application/json")
 		_, err := io.WriteString(rw, CreateFeatureResponseJson)

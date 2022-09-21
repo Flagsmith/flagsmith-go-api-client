@@ -68,12 +68,9 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, 
 }
 
 func (c *Client) GetProject(projectUUID string) (*Project, error) {
-	url := fmt.Sprintf("%s/projects/", c.baseURL)
+	url := fmt.Sprintf("%s/projects/get-by-uuid/%s/", c.baseURL, projectUUID)
 	result := []*Project{}
 	resp, err := c.client.R().
-		SetQueryParams(map[string]string{
-			"uuid": projectUUID,
-		}).
 		SetResult(&result).
 		Get(url)
 
