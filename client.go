@@ -142,7 +142,16 @@ func (c *Client) DeleteFeature(projectID, featureID int64) error {
 }
 
 func (c *Client) UpdateFeature(feature *Feature) error {
-	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, *feature.ProjectID, *feature.ID)
+	projectID := feature.ProjectID
+	if projectID == nil {
+		project, err := c.GetProject(feature.ProjectUUID)
+		if err != nil {
+			return err
+		}
+		projectID = &project.ID
+	}
+
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, *projectID, *feature.ID)
 	resp, err := c.client.R().SetBody(feature).SetResult(feature).Put(url)
 
 	if err != nil {
