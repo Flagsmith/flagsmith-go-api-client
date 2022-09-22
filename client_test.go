@@ -3,11 +3,10 @@ package flagsmithapi_test
 import (
 	"fmt"
 	"io"
-	"testing"
-
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 
@@ -75,6 +74,8 @@ func TestGetFeatureState(t *testing.T) {
 		_, err := io.WriteString(rw, GetFeatureStateJson)
 		assert.NoError(t, err)
 	}))
+	defer server.Close()
+
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
 	// When
@@ -126,7 +127,7 @@ func TestUpdateFeatureState(t *testing.T) {
 		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
 
 		// Test that we sent the correct body
-		rawBody, err := ioutil.ReadAll(req.Body)
+		rawBody, err := io.ReadAll(req.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedRequestBody, string(rawBody))
 
@@ -134,6 +135,8 @@ func TestUpdateFeatureState(t *testing.T) {
 		_, err = io.WriteString(rw, UpdateFeatureStateResponseJson)
 		assert.NoError(t, err)
 	}))
+	defer server.Close()
+
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
 
 	updated_fs, err := client.UpdateFeatureState(&fs)
@@ -152,5 +155,360 @@ func TestUpdateFeatureState(t *testing.T) {
 	assert.Equal(t, "unicode", fs.FeatureStateValue.Type)
 	assert.Equal(t, nilIntPointer, fs.FeatureStateValue.IntegerValue)
 	assert.Equal(t, nilBoolPointer, fs.FeatureStateValue.BooleanValue)
+
+}
+
+const GetProjectResponseJson = `
+[
+    {
+        "id": 1,
+        "uuid": "10421b1f-5f29-4da9-abe2-30f88c07c9e8",
+        "name": "project-1",
+        "organisation": 1,
+        "hide_disabled_flags": false,
+        "enable_dynamo_db": true,
+        "migration_status": "NOT_APPLICABLE",
+        "use_edge_identities": false
+    }
+]
+`
+
+func TestGetProject(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/projects/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	project, err := client.GetProject(projectUUID)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(1), project.ID)
+	assert.Equal(t, projectUUID, project.UUID)
+	assert.Equal(t, "project-1", project.Name)
+}
+
+const CreateFeatureResponseJson = `
+{
+    "id": 1,
+    "name": "test_feature",
+    "project": 1,
+    "type": "STANDARD",
+    "default_enabled": false,
+    "initial_value": null,
+    "created_date": "2022-08-24T03:34:55.862503Z",
+    "description": null,
+    "tags": [],
+    "multivariate_options": [],
+    "is_archived": false,
+    "owners": []
+}
+`
+
+func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+	newFeature := flagsmithapi.Feature{
+		Name:        "test_feature",
+		ProjectUUID: projectUUID,
+	}
+	mux := http.NewServeMux()
+	expectedRequestBody := `{"name":"test_feature"}`
+
+	mux.HandleFunc("/api/v1/projects/1/features/", func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		rawBody, err := io.ReadAll(req.Body)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+		assert.NoError(t, err)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc("/api/v1/projects/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateFeature(&newFeature)
+
+	// Then
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), *newFeature.ID)
+	assert.Equal(t, "test_feature", newFeature.Name)
+	assert.Equal(t, "STANDARD", *newFeature.Type)
+	assert.Equal(t, false, newFeature.DefaultEnabled)
+	assert.Equal(t, false, newFeature.IsArchived)
+
+	assert.Equal(t, "", newFeature.InitialValue)
+
+	assert.Equal(t, int64(1), *newFeature.ProjectID)
+	assert.Equal(t, "10421b1f-5f29-4da9-abe2-30f88c07c9e8", newFeature.ProjectUUID)
+
+}
+
+const CreateMVFeatureResponseJson = `
+{
+    "id": 1,
+    "name": "test_feature",
+    "type": "MULTIVARIATE",
+    "default_enabled": false,
+    "initial_value": null,
+    "created_date": "2022-08-26T03:33:41.492354Z",
+    "description": null,
+    "tags": [],
+    "multivariate_options": [
+        {
+            "id": 1,
+            "type": "unicode",
+            "integer_value": null,
+            "string_value": "value_one",
+            "boolean_value": null,
+            "default_percentage_allocation": 50.0
+        },
+        {
+            "id": 2,
+            "type": "unicode",
+            "integer_value": null,
+            "string_value": "value_two",
+            "boolean_value": null,
+            "default_percentage_allocation": 50.0
+        }
+    ],
+    "is_archived": false,
+    "owners": []
+}
+`
+
+func TestCreateMVFeature(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	featureType := "MULTIVARIATE"
+	projectID := int64(1)
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+	mvValueOne := "value_one"
+	mvValueTwo := "value_two"
+
+	mvOptions := []flagsmithapi.MultivariateOption{
+		{
+			Type:                        "unicode",
+			StringValue:                 &mvValueOne,
+			DefaultPercentageAllocation: float64(50),
+		},
+		{
+			Type:                        "unicode",
+			StringValue:                 &mvValueTwo,
+			DefaultPercentageAllocation: float64(50),
+		},
+	}
+
+	newFeature := flagsmithapi.Feature{
+		Name:                "test_feature",
+		ProjectUUID:         projectUUID,
+		ProjectID:           &projectID,
+		Type:                &featureType,
+		MultivariateOptions: &mvOptions,
+	}
+
+	expectedRequestBody := `{"name":"test_feature","type":"MULTIVARIATE","multivariate_options":[{"type":"unicode","string_value":"value_one","default_percentage_allocation":50},{"type":"unicode","string_value":"value_two","default_percentage_allocation":50}],"project":1}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/projects/1/features/", req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateMVFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateFeature(&newFeature)
+
+	// Then
+	assert.NoError(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), *newFeature.ID)
+	assert.Equal(t, "test_feature", newFeature.Name)
+
+	assert.Equal(t, "MULTIVARIATE", *newFeature.Type)
+	assert.Equal(t, false, newFeature.DefaultEnabled)
+	assert.Equal(t, false, newFeature.IsArchived)
+
+	assert.Equal(t, "", newFeature.InitialValue)
+
+	assert.Equal(t, int64(1), *newFeature.ProjectID)
+	assert.Equal(t, "10421b1f-5f29-4da9-abe2-30f88c07c9e8", newFeature.ProjectUUID)
+	assert.Equal(t, 2, len(*newFeature.MultivariateOptions))
+
+	assert.Equal(t, int64(1), *(*newFeature.MultivariateOptions)[0].ID)
+	assert.Equal(t, "value_one", *(*newFeature.MultivariateOptions)[0].StringValue)
+
+	assert.Equal(t, int64(2), *(*newFeature.MultivariateOptions)[1].ID)
+	assert.Equal(t, "value_two", *(*newFeature.MultivariateOptions)[1].StringValue)
+
+}
+
+func TestDeleteFeature(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+
+	projectID := int64(1)
+	featureID := int64(1)
+
+	requestReceived := struct {
+		mu                sync.Mutex
+		isRequestReceived bool
+	}{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		requestReceived.mu.Lock()
+		requestReceived.isRequestReceived = true
+		requestReceived.mu.Unlock()
+
+		assert.Equal(t, "/api/v1/projects/1/features/1/", req.URL.Path)
+		assert.Equal(t, "DELETE", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.DeleteFeature(projectID, featureID)
+
+	// Then
+	requestReceived.mu.Lock()
+	assert.True(t, requestReceived.isRequestReceived)
+	assert.NoError(t, err)
+}
+
+func TestUpdateFeature(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	projectID := int64(1)
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+	featureID := int64(1)
+
+	description := "feature description"
+
+	feature := flagsmithapi.Feature{
+		Name:        "test_feature",
+		ID:          &featureID,
+		ProjectUUID: projectUUID,
+		ProjectID:   &projectID,
+		Description: &description,
+	}
+
+	expectedRequestBody := `{"name":"test_feature","id":1,"description":"feature description","project":1}`
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/projects/1/features/1/", req.URL.Path)
+		assert.Equal(t, "PUT", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateFeature(&feature)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), *feature.ID)
+	assert.Equal(t, "test_feature", feature.Name)
+	assert.Equal(t, "STANDARD", *feature.Type)
+	assert.Equal(t, false, feature.DefaultEnabled)
+	assert.Equal(t, false, feature.IsArchived)
+
+	assert.Equal(t, "", feature.InitialValue)
+
+	assert.Equal(t, int64(1), *feature.ProjectID)
+	assert.Equal(t, "10421b1f-5f29-4da9-abe2-30f88c07c9e8", feature.ProjectUUID)
+
+}
+
+func TestGetFeature(t *testing.T) {
+	// Given
+	masterAPIKey := "master_api_key"
+	featureUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/features/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
+
+	// When
+	feature, err := client.GetFeature(featureUUID)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), *feature.ID)
+	assert.Equal(t, "test_feature", feature.Name)
+	assert.Equal(t, "STANDARD", *feature.Type)
+	assert.Equal(t, false, feature.DefaultEnabled)
+	assert.Equal(t, false, feature.IsArchived)
+
+	assert.Equal(t, "", feature.InitialValue)
+
+	assert.Equal(t, int64(1), *feature.ProjectID)
 
 }
