@@ -69,22 +69,36 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, 
 
 func (c *Client) GetProject(projectUUID string) (*Project, error) {
 	url := fmt.Sprintf("%s/projects/get-by-uuid/%s/", c.baseURL, projectUUID)
-	result := []*Project{}
+	project := Project{}
 	resp, err := c.client.R().
-		SetResult(&result).
+		SetResult(&project).
 		Get(url)
 
 	if err != nil {
 		return nil, err
 	}
-	if !resp.IsSuccess() || len(result) != 1 {
+	if !resp.IsSuccess() {
 		return nil, fmt.Errorf("flagsmithapi: Error getting project: %s", resp)
 	}
-	project := result[0]
-	return project, nil
+	return &project, nil
 
 }
+func (c *Client) GetProjectByID(projectID int64) (*Project, error) {
+	url := fmt.Sprintf("%s/projects/%d/", c.baseURL, projectID)
+	project := Project{}
+	resp, err := c.client.R().
+		SetResult(&project).
+		Get(url)
 
+	if err != nil {
+		return nil, err
+	}
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting project: %s", resp)
+	}
+	return &project, nil
+
+}
 func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	url := fmt.Sprintf("%s/features/get-by-uuid/%s/", c.baseURL, featureUUID)
 	feature := Feature{}
@@ -98,6 +112,11 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf("flagsmithapi: Error getting feature: %s", resp)
 	}
+	project, err := c.GetProjectByID(*feature.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	feature.ProjectUUID = project.UUID
 	return &feature, nil
 }
 

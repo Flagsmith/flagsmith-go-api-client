@@ -159,7 +159,6 @@ func TestUpdateFeatureState(t *testing.T) {
 }
 
 const GetProjectResponseJson = `
-[
     {
         "id": 1,
         "uuid": "10421b1f-5f29-4da9-abe2-30f88c07c9e8",
@@ -170,7 +169,6 @@ const GetProjectResponseJson = `
         "migration_status": "NOT_APPLICABLE",
         "use_edge_identities": false
     }
-]
 `
 
 func TestGetProject(t *testing.T) {
@@ -479,8 +477,12 @@ func TestGetFeature(t *testing.T) {
 	// Given
 	masterAPIKey := "master_api_key"
 	featureUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
+	projectUUID := "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
 
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/api/v1/features/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", func(rw http.ResponseWriter, req *http.Request) {
+
 		assert.Equal(t, "/api/v1/features/get-by-uuid/10421b1f-5f29-4da9-abe2-30f88c07c9e8/", req.URL.Path)
 		assert.Equal(t, "GET", req.Method)
 		assert.Equal(t, "Api-Key "+masterAPIKey, req.Header.Get("Authorization"))
@@ -489,7 +491,15 @@ func TestGetFeature(t *testing.T) {
 		_, err := io.WriteString(rw, CreateFeatureResponseJson)
 		assert.NoError(t, err)
 
-	}))
+	})
+
+	mux.HandleFunc("/api/v1/projects/1/", func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
 	defer server.Close()
 
 	client := flagsmithapi.NewClient(masterAPIKey, server.URL+"/api/v1")
@@ -510,5 +520,6 @@ func TestGetFeature(t *testing.T) {
 	assert.Equal(t, "", feature.InitialValue)
 
 	assert.Equal(t, int64(1), *feature.ProjectID)
+	assert.Equal(t, projectUUID, feature.ProjectUUID)
 
 }
