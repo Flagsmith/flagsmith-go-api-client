@@ -438,7 +438,7 @@ func TestGetFeature(t *testing.T) {
 
 const GetMVFeatureOptionResponseJson = `
 {
-    "id": 136,
+    "id": 150,
     "uuid": "8d3512d3-721a-4cae-9855-56c02cb0afe9",
     "type": "unicode",
     "string_value": "option_value_30",
@@ -448,7 +448,7 @@ const GetMVFeatureOptionResponseJson = `
 }
 `
 const MVFeatureOptionUUID = "8d3512d3-721a-4cae-9855-56c02cb0afe9"
-const MVFeatureOptionID int64 = 136
+const MVFeatureOptionID int64 = 150
 
 func TestGetFeatureMVOption(t *testing.T) {
 	// Given
@@ -653,7 +653,7 @@ func TestCreateFeatureMVOption(t *testing.T) {
 
 }
 
-func TestTestCreateFeatureMVOptionWithFeatureIDNotSet(t *testing.T) {
+func TestCreateFeatureMVOptionWithFeatureIDNotSet(t *testing.T) {
 	// Given
 	stringValue := "option_value_30"
 	defaultPercentageAllocation := float64(60)
