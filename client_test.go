@@ -448,7 +448,7 @@ const GetMVFeatureOptionResponseJson = `
 }
 `
 const MVFeatureOptionUUID = "8d3512d3-721a-4cae-9855-56c02cb0afe9"
-const MVFeatureOptionID int64 = 150
+const MVFeatureOptionID int64 = 200
 
 func TestGetFeatureMVOption(t *testing.T) {
 	// Given
