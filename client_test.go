@@ -436,6 +436,10 @@ func TestGetFeature(t *testing.T) {
 
 }
 
+// 200 is arbitrarily chosen to avoid collision with other ids
+const MVFeatureOptionID int64 = 200
+const MVFeatureOptionUUID = "8d3512d3-721a-4cae-9855-56c02cb0afe9"
+
 const GetMVFeatureOptionResponseJson = `
 {
     "id": 200,
@@ -447,8 +451,6 @@ const GetMVFeatureOptionResponseJson = `
     "feature": 1
 }
 `
-const MVFeatureOptionUUID = "8d3512d3-721a-4cae-9855-56c02cb0afe9"
-const MVFeatureOptionID int64 = 200
 
 func TestGetFeatureMVOption(t *testing.T) {
 	// Given
