@@ -304,84 +304,6 @@ const CreateMVFeatureResponseJson = `
 }
 `
 
-func TestCreateMVFeature(t *testing.T) {
-	// Given
-	featureType := "MULTIVARIATE"
-	mvValueOne := "value_one"
-	mvValueTwo := "value_two"
-
-	projectID := ProjectID
-
-	mvOptions := []flagsmithapi.MultivariateOption{
-		{
-			Type:                        "unicode",
-			StringValue:                 &mvValueOne,
-			DefaultPercentageAllocation: float64(50),
-		},
-		{
-			Type:                        "unicode",
-			StringValue:                 &mvValueTwo,
-			DefaultPercentageAllocation: float64(50),
-		},
-	}
-
-	newFeature := flagsmithapi.Feature{
-		Name:                FeatureName,
-		ProjectUUID:         ProjectUUID,
-		ProjectID:           &projectID,
-		Type:                &featureType,
-		MultivariateOptions: &mvOptions,
-	}
-
-	expectedRequestBody := fmt.Sprintf(`{"name":"%s","type":"MULTIVARIATE","multivariate_options":[{"type":"unicode","string_value":"value_one","default_percentage_allocation":50},`+
-		`{"type":"unicode","string_value":"value_two","default_percentage_allocation":50}],"project":%d}`, FeatureName, ProjectID)
-
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/", ProjectID), req.URL.Path)
-		assert.Equal(t, "POST", req.Method)
-		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
-
-		// Test that we sent the correct body
-		rawBody, err := io.ReadAll(req.Body)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedRequestBody, string(rawBody))
-
-		rw.Header().Set("Content-Type", "application/json")
-		_, err = io.WriteString(rw, CreateMVFeatureResponseJson)
-		assert.NoError(t, err)
-
-	}))
-	defer server.Close()
-
-	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
-
-	// When
-	err := client.CreateFeature(&newFeature)
-
-	// Then
-	assert.NoError(t, err)
-	assert.NoError(t, err)
-	assert.Equal(t, FeatureID, *newFeature.ID)
-	assert.Equal(t, FeatureName, newFeature.Name)
-
-	assert.Equal(t, "MULTIVARIATE", *newFeature.Type)
-	assert.Equal(t, false, newFeature.DefaultEnabled)
-	assert.Equal(t, false, newFeature.IsArchived)
-
-	assert.Equal(t, "", newFeature.InitialValue)
-
-	assert.Equal(t, ProjectID, *newFeature.ProjectID)
-	assert.Equal(t, ProjectUUID, newFeature.ProjectUUID)
-	assert.Equal(t, 2, len(*newFeature.MultivariateOptions))
-
-	assert.Equal(t, int64(1), *(*newFeature.MultivariateOptions)[0].ID)
-	assert.Equal(t, "value_one", *(*newFeature.MultivariateOptions)[0].StringValue)
-
-	assert.Equal(t, int64(2), *(*newFeature.MultivariateOptions)[1].ID)
-	assert.Equal(t, "value_two", *(*newFeature.MultivariateOptions)[1].StringValue)
-
-}
-
 func TestDeleteFeature(t *testing.T) {
 	// Given
 
@@ -511,5 +433,294 @@ func TestGetFeature(t *testing.T) {
 
 	assert.Equal(t, ProjectID, *feature.ProjectID)
 	assert.Equal(t, ProjectUUID, feature.ProjectUUID)
+
+}
+
+// 200 is arbitrarily chosen to avoid collision with other ids
+const MVFeatureOptionID int64 = 200
+const MVFeatureOptionUUID = "8d3512d3-721a-4cae-9855-56c02cb0afe9"
+
+const GetMVFeatureOptionResponseJson = `
+{
+    "id": 200,
+    "uuid": "8d3512d3-721a-4cae-9855-56c02cb0afe9",
+    "type": "unicode",
+    "string_value": "option_value_30",
+    "boolean_value": null,
+    "default_percentage_allocation": 60.0,
+    "feature": 1
+}
+`
+
+func TestGetFeatureMVOption(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/multivariate/options/get-by-uuid/%s/", MVFeatureOptionUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetMVFeatureOptionResponseJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	featureMVOption, err := client.GetFeatureMVOption(FeatureUUID, MVFeatureOptionUUID)
+
+	// Then
+	var nilIntPointer *int64
+	var nilBoolPointer *bool
+
+	assert.NoError(t, err)
+	assert.Equal(t, MVFeatureOptionUUID, featureMVOption.UUID)
+	assert.Equal(t, MVFeatureOptionID, featureMVOption.ID)
+
+	assert.Equal(t, "unicode", featureMVOption.Type)
+	assert.Equal(t, "option_value_30", *featureMVOption.StringValue)
+	assert.Equal(t, nilIntPointer, featureMVOption.IntegerValue)
+	assert.Equal(t, nilBoolPointer, featureMVOption.BooleanValue)
+
+	assert.Equal(t, float64(60), featureMVOption.DefaultPercentageAllocation)
+	assert.Equal(t, FeatureID, *featureMVOption.FeatureID)
+	assert.Equal(t, FeatureUUID, featureMVOption.FeatureUUID)
+
+	assert.Equal(t, ProjectID, *featureMVOption.ProjectID)
+
+}
+
+func TestDeleteFeatureMVOption(t *testing.T) {
+	// Given
+	requestReceived := struct {
+		mu                sync.Mutex
+		isRequestReceived bool
+	}{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		requestReceived.mu.Lock()
+		requestReceived.isRequestReceived = true
+		requestReceived.mu.Unlock()
+
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/mv-options/%d/", ProjectID, FeatureID, MVFeatureOptionID), req.URL.Path)
+		assert.Equal(t, "DELETE", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+	}))
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.DeleteFeatureMVOption(ProjectID, FeatureID, MVFeatureOptionID)
+
+	// Then
+	requestReceived.mu.Lock()
+	assert.True(t, requestReceived.isRequestReceived)
+	assert.NoError(t, err)
+}
+
+func TestUpdateFeatureMVOption(t *testing.T) {
+	// Given
+	featureID := FeatureID
+	projectID := ProjectID
+	stringValue := "option_value_30"
+	defaultPercentageAllocation := float64(60)
+	featureMVOption := flagsmithapi.FeatureMultivariateOption{
+		ID:                          MVFeatureOptionID,
+		Type:                        "unicode",
+		UUID:                        "", // avoid setting UUID to test that update refreshes the struct
+		FeatureID:                   &featureID,
+		StringValue:                 &stringValue,
+		DefaultPercentageAllocation: defaultPercentageAllocation,
+		FeatureUUID:                 FeatureUUID,
+		ProjectID:                   &projectID,
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"id":%d,"type":"unicode","feature":%d,"string_value":"%s","default_percentage_allocation":%.0f}`, MVFeatureOptionID, featureID, stringValue, defaultPercentageAllocation)
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/mv-options/%d/", ProjectID, FeatureID, MVFeatureOptionID), req.URL.Path)
+		assert.Equal(t, "PUT", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, GetMVFeatureOptionResponseJson)
+		assert.NoError(t, err)
+
+	}))
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateFeatureMVOption(&featureMVOption)
+
+	// Then
+	var nilIntPointer *int64
+	var nilBoolPointer *bool
+
+	assert.NoError(t, err)
+	assert.Equal(t, MVFeatureOptionUUID, featureMVOption.UUID)
+
+	assert.Equal(t, "unicode", featureMVOption.Type)
+	assert.Equal(t, stringValue, *featureMVOption.StringValue)
+	assert.Equal(t, nilIntPointer, featureMVOption.IntegerValue)
+	assert.Equal(t, nilBoolPointer, featureMVOption.BooleanValue)
+
+	assert.Equal(t, float64(60), featureMVOption.DefaultPercentageAllocation)
+	assert.Equal(t, FeatureID, *featureMVOption.FeatureID)
+	assert.Equal(t, FeatureUUID, featureMVOption.FeatureUUID)
+
+	assert.Equal(t, ProjectID, *featureMVOption.ProjectID)
+
+}
+
+func TestCreateFeatureMVOption(t *testing.T) {
+	// Given
+	featureID := FeatureID
+	projectID := ProjectID
+	stringValue := "option_value_30"
+	defaultPercentageAllocation := float64(60)
+	featureMVOption := flagsmithapi.FeatureMultivariateOption{
+		Type:                        "unicode",
+		FeatureID:                   &featureID,
+		StringValue:                 &stringValue,
+		DefaultPercentageAllocation: defaultPercentageAllocation,
+		FeatureUUID:                 FeatureUUID,
+		ProjectID:                   &projectID,
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"type":"unicode","feature":%d,"string_value":"%s","default_percentage_allocation":%.0f}`, featureID, stringValue, defaultPercentageAllocation)
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/mv-options/", ProjectID, FeatureID), req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, GetMVFeatureOptionResponseJson)
+		assert.NoError(t, err)
+
+	}))
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateFeatureMVOption(&featureMVOption)
+
+	// Then
+	var nilIntPointer *int64
+	var nilBoolPointer *bool
+
+	assert.NoError(t, err)
+	assert.Equal(t, MVFeatureOptionUUID, featureMVOption.UUID)
+
+	assert.Equal(t, "unicode", featureMVOption.Type)
+	assert.Equal(t, stringValue, *featureMVOption.StringValue)
+	assert.Equal(t, nilIntPointer, featureMVOption.IntegerValue)
+	assert.Equal(t, nilBoolPointer, featureMVOption.BooleanValue)
+
+	assert.Equal(t, float64(60), featureMVOption.DefaultPercentageAllocation)
+	assert.Equal(t, FeatureID, *featureMVOption.FeatureID)
+	assert.Equal(t, FeatureUUID, featureMVOption.FeatureUUID)
+
+	assert.Equal(t, ProjectID, *featureMVOption.ProjectID)
+
+}
+
+func TestCreateFeatureMVOptionWithFeatureIDNotSet(t *testing.T) {
+	// Given
+	stringValue := "option_value_30"
+	defaultPercentageAllocation := float64(60)
+	featureMVOption := flagsmithapi.FeatureMultivariateOption{
+		Type:                        "unicode",
+		StringValue:                 &stringValue,
+		DefaultPercentageAllocation: defaultPercentageAllocation,
+		FeatureUUID:                 FeatureUUID,
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"type":"unicode","feature":%d,"string_value":"%s","default_percentage_allocation":%.0f}`, FeatureID, stringValue, defaultPercentageAllocation)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/features/%d/mv-options/", ProjectID, FeatureID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, GetMVFeatureOptionResponseJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateFeatureMVOption(&featureMVOption)
+
+	// Then
+	var nilIntPointer *int64
+	var nilBoolPointer *bool
+
+	assert.NoError(t, err)
+	assert.Equal(t, MVFeatureOptionUUID, featureMVOption.UUID)
+
+	assert.Equal(t, "unicode", featureMVOption.Type)
+	assert.Equal(t, stringValue, *featureMVOption.StringValue)
+	assert.Equal(t, nilIntPointer, featureMVOption.IntegerValue)
+	assert.Equal(t, nilBoolPointer, featureMVOption.BooleanValue)
+
+	assert.Equal(t, float64(60), featureMVOption.DefaultPercentageAllocation)
+	assert.Equal(t, FeatureID, *featureMVOption.FeatureID)
+	assert.Equal(t, FeatureUUID, featureMVOption.FeatureUUID)
+
+	assert.Equal(t, ProjectID, *featureMVOption.ProjectID)
 
 }

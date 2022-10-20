@@ -183,3 +183,84 @@ func (c *Client) UpdateFeature(feature *Feature) error {
 
 	return nil
 }
+
+func (c *Client) GetFeatureMVOption(featureUUID, mvOptionUUID string) (*FeatureMultivariateOption, error) {
+	url := fmt.Sprintf("%s/multivariate/options/get-by-uuid/%s/", c.baseURL, mvOptionUUID)
+	featureMVOption := FeatureMultivariateOption{}
+	resp, err := c.client.R().
+		SetResult(&featureMVOption).
+		Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature MV option: %s", resp)
+	}
+	feature, err := c.GetFeature(featureUUID)
+	if err != nil {
+		return nil, err
+	}
+	featureMVOption.FeatureUUID = featureUUID
+	featureMVOption.ProjectID = feature.ProjectID
+
+	return &featureMVOption, nil
+}
+
+func (c *Client) DeleteFeatureMVOption(projectID, featureID, mvOptionID int64) error {
+	url := fmt.Sprintf("%s/projects/%d/features/%d/mv-options/%d/", c.baseURL, projectID, featureID, mvOptionID)
+
+	resp, err := c.client.R().Delete(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error deleting feature MV option: %s", resp)
+	}
+	return nil
+}
+
+func (c *Client) UpdateFeatureMVOption(featureMVOption *FeatureMultivariateOption) error {
+	url := fmt.Sprintf("%s/projects/%d/features/%d/mv-options/%d/", c.baseURL, *featureMVOption.ProjectID,
+		*featureMVOption.FeatureID, featureMVOption.ID)
+	resp, err := c.client.R().SetBody(featureMVOption).SetResult(featureMVOption).Put(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error updating feature MV option: %s", resp)
+	}
+
+	return nil
+}
+
+func (c *Client) CreateFeatureMVOption(featureMVOption *FeatureMultivariateOption) error {
+	if featureMVOption.FeatureID == nil {
+		feature, err := c.GetFeature(featureMVOption.FeatureUUID)
+		if err != nil {
+			return err
+		}
+		featureMVOption.FeatureID = feature.ID
+		featureMVOption.ProjectID = feature.ProjectID
+	}
+
+	url := fmt.Sprintf("%s/projects/%d/features/%d/mv-options/", c.baseURL, *featureMVOption.ProjectID,
+		*featureMVOption.FeatureID)
+
+	resp, err := c.client.R().SetBody(featureMVOption).SetResult(&featureMVOption).Post(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error creating feature MV option: %s", resp)
+	}
+
+	return nil
+}
