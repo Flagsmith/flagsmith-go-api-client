@@ -119,3 +119,26 @@ func (fs *FeatureState) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+type Condition struct {
+	Operator string `json:"operator"`
+	Property string `json:"property"`
+	Value    string `json:"value"`
+}
+
+type Rule struct {
+	Type       string      `json:"type"`
+	Rules      []Rule      `json:"rules,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
+}
+
+type Segment struct {
+	ID          *int64  `json:"id,omitempty"`
+	UUID        string  `json:"uuid,omitempty"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	ProjectID   *int64  `json:"project"`
+	ProjectUUID string  `json:"-"`
+	FeatureID   *int64  `json:"feature,omitempty"`
+	Rules       []Rule  `json:"rules"`
+}

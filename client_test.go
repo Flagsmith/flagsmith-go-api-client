@@ -724,3 +724,294 @@ func TestCreateFeatureMVOptionWithFeatureIDNotSet(t *testing.T) {
 	assert.Equal(t, ProjectID, *featureMVOption.ProjectID)
 
 }
+
+// 300 is arbitrarily chosen to avoid collision with other ids
+const SegmentID int64 = 300
+const SegmentUUID = "f6c714d3-94e7-4b14-9117-8dd9db91bc19"
+
+const GetSegmentResponseJson = `
+{
+    "id": 300,
+    "rules": [
+        {
+            "type": "ALL",
+            "rules": [
+                {
+                    "type": "ANY",
+                    "rules": [],
+                    "conditions": [
+                        {
+                            "operator": "EQUAL",
+                            "property": "1",
+                            "value": "1"
+                        }
+                    ]
+                }
+            ],
+            "conditions": []
+        }
+    ],
+    "uuid": "f6c714d3-94e7-4b14-9117-8dd9db91bc19",
+    "name": "one_matches_one",
+    "description": null,
+    "project": 10,
+    "feature": null
+}
+
+`
+
+func TestGetSegment(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/segments/get-by-uuid/%s/", SegmentUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetSegmentResponseJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	segment, err := client.GetSegment(SegmentUUID)
+
+	// Then
+	var nilIntPointer *int64
+	var nilStringPointer *string
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, SegmentID, *segment.ID)
+	assert.Equal(t, SegmentUUID, segment.UUID)
+	assert.Equal(t, "one_matches_one", segment.Name)
+	assert.Equal(t, nilStringPointer, segment.Description)
+	assert.Equal(t, ProjectID, *segment.ProjectID)
+	assert.Equal(t, ProjectUUID, segment.ProjectUUID)
+	assert.Equal(t, nilIntPointer, segment.FeatureID)
+
+	assert.Equal(t, 1, len(segment.Rules))
+
+	assert.Equal(t, "ALL", segment.Rules[0].Type)
+	assert.Equal(t, 1, len(segment.Rules[0].Rules))
+	assert.Equal(t, 0, len(segment.Rules[0].Conditions))
+	assert.Equal(t, "ANY", segment.Rules[0].Rules[0].Type)
+	assert.Equal(t, 0, len(segment.Rules[0].Rules[0].Rules))
+	assert.Equal(t, 1, len(segment.Rules[0].Rules[0].Conditions))
+	assert.Equal(t, "EQUAL", segment.Rules[0].Rules[0].Conditions[0].Operator)
+	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Property)
+	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Value)
+
+}
+
+func TestDeleteSegment(t *testing.T) {
+	// Given
+	requestReceived := struct {
+		mu                sync.Mutex
+		isRequestReceived bool
+	}{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		requestReceived.mu.Lock()
+		requestReceived.isRequestReceived = true
+		requestReceived.mu.Unlock()
+
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/segments/%d/", ProjectID, SegmentID), req.URL.Path)
+		assert.Equal(t, "DELETE", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+	}))
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.DeleteSegment(ProjectID, SegmentID)
+
+	// Then
+	requestReceived.mu.Lock()
+	assert.True(t, requestReceived.isRequestReceived)
+	assert.NoError(t, err)
+}
+
+func TestCreateSegment(t *testing.T) {
+	// Given
+	segmentName := "test_segment"
+	segment := flagsmithapi.Segment{
+		Name:        segmentName,
+		ProjectUUID: ProjectUUID,
+		Rules: []flagsmithapi.Rule{
+			{
+				Type: "ALL",
+				Rules: []flagsmithapi.Rule{
+					{
+						Type:  "ANY",
+						Rules: []flagsmithapi.Rule{},
+						Conditions: []flagsmithapi.Condition{
+							{
+								Operator: "EQUAL",
+								Property: "1",
+								Value:    "1",
+							},
+						},
+					},
+				},
+				Conditions: []flagsmithapi.Condition{},
+			},
+		},
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"name":"%s","project":%d,"rules":[{"type":"ALL","rules":[{"type":"ANY","conditions":[{"operator":"EQUAL","property":"1","value":"1"}]}]}]}`, segmentName, ProjectID)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/segments/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, GetSegmentResponseJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/get-by-uuid/%s/", ProjectUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateSegment(&segment)
+
+	// Then
+	var nilIntPointer *int64
+	var nilStringPointer *string
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, SegmentID, *segment.ID)
+	assert.Equal(t, SegmentUUID, segment.UUID)
+	assert.Equal(t, "one_matches_one", segment.Name)
+	assert.Equal(t, nilStringPointer, segment.Description)
+	assert.Equal(t, ProjectID, *segment.ProjectID)
+	assert.Equal(t, ProjectUUID, segment.ProjectUUID)
+	assert.Equal(t, nilIntPointer, segment.FeatureID)
+
+	assert.Equal(t, 1, len(segment.Rules))
+
+	assert.Equal(t, "ALL", segment.Rules[0].Type)
+	assert.Equal(t, 1, len(segment.Rules[0].Rules))
+	assert.Equal(t, 0, len(segment.Rules[0].Conditions))
+	assert.Equal(t, "ANY", segment.Rules[0].Rules[0].Type)
+	assert.Equal(t, 0, len(segment.Rules[0].Rules[0].Rules))
+	assert.Equal(t, 1, len(segment.Rules[0].Rules[0].Conditions))
+	assert.Equal(t, "EQUAL", segment.Rules[0].Rules[0].Conditions[0].Operator)
+	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Property)
+	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Value)
+
+}
+
+func TestUpdateSegment(t *testing.T) {
+	// Given
+	segmentName := "test_segment"
+	segmentID := SegmentID
+	projectID := ProjectID
+	segment := flagsmithapi.Segment{
+		Name:        segmentName,
+		ID:          &segmentID,
+		ProjectUUID: ProjectUUID,
+		ProjectID:   &projectID,
+		Rules: []flagsmithapi.Rule{
+			{
+				Type: "ALL",
+				Rules: []flagsmithapi.Rule{
+					{
+						Type:  "ANY",
+						Rules: []flagsmithapi.Rule{},
+						Conditions: []flagsmithapi.Condition{
+							{
+								Operator: "EQUAL",
+								Property: "1",
+								Value:    "1",
+							},
+						},
+					},
+				},
+				Conditions: []flagsmithapi.Condition{},
+			},
+		},
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"id":%d,"name":"%s","project":%d,"rules":[{"type":"ALL","rules":[{"type":"ANY","conditions":[{"operator":"EQUAL","property":"1","value":"1"}]}]}]}`, SegmentID, segmentName, ProjectID)
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/segments/%d/", ProjectID, SegmentID), req.URL.Path)
+		assert.Equal(t, "PUT", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, GetSegmentResponseJson)
+		assert.NoError(t, err)
+
+	}))
+
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateSegment(&segment)
+
+	// Then
+	var nilIntPointer *int64
+	var nilStringPointer *string
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, SegmentID, *segment.ID)
+	assert.Equal(t, SegmentUUID, segment.UUID)
+	assert.Equal(t, "one_matches_one", segment.Name)
+	assert.Equal(t, nilStringPointer, segment.Description)
+	assert.Equal(t, ProjectID, *segment.ProjectID)
+	assert.Equal(t, ProjectUUID, segment.ProjectUUID)
+	assert.Equal(t, nilIntPointer, segment.FeatureID)
+
+	assert.Equal(t, 1, len(segment.Rules))
+
+	assert.Equal(t, "ALL", segment.Rules[0].Type)
+	assert.Equal(t, 1, len(segment.Rules[0].Rules))
+	assert.Equal(t, 0, len(segment.Rules[0].Conditions))
+	assert.Equal(t, "ANY", segment.Rules[0].Rules[0].Type)
+	assert.Equal(t, 0, len(segment.Rules[0].Rules[0].Rules))
+	assert.Equal(t, 1, len(segment.Rules[0].Rules[0].Conditions))
+	assert.Equal(t, "EQUAL", segment.Rules[0].Rules[0].Conditions[0].Operator)
+	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Property)
+	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Value)
+
+}
