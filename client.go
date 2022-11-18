@@ -264,3 +264,85 @@ func (c *Client) CreateFeatureMVOption(featureMVOption *FeatureMultivariateOptio
 
 	return nil
 }
+
+func (c *Client) GetSegment(segmentUUID string) (*Segment, error) {
+	url := fmt.Sprintf("%s/segments/get-by-uuid/%s/", c.baseURL, segmentUUID)
+	segment := Segment{}
+	resp, err := c.client.R().
+		SetResult(&segment).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting segment: %s", resp)
+	}
+	project, err := c.GetProjectByID(*segment.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	segment.ProjectUUID = project.UUID
+	return &segment, nil
+}
+func (c *Client) DeleteSegment(projectID, segmentID int64) error {
+	url := fmt.Sprintf("%s/projects/%d/segments/%d/", c.baseURL, projectID, segmentID)
+
+	resp, err := c.client.R().Delete(url)
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error deleting segment: %s", resp)
+	}
+	return nil
+}
+func (c *Client) CreateSegment(segment *Segment) error {
+	projectID := segment.ProjectID
+	if projectID == nil {
+		project, err := c.GetProject(segment.ProjectUUID)
+		if err != nil {
+			return err
+		}
+		projectID = &project.ID
+	}
+	segment.ProjectID = projectID
+
+	url := fmt.Sprintf("%s/projects/%d/segments/", c.baseURL, *projectID)
+	resp, err := c.client.R().SetBody(segment).SetResult(segment).Post(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error creating segment: %s", resp)
+	}
+
+	return nil
+}
+func (c *Client) UpdateSegment(segment *Segment) error {
+	projectID := segment.ProjectID
+	if projectID == nil {
+		project, err := c.GetProject(segment.ProjectUUID)
+		if err != nil {
+			return err
+		}
+		projectID = &project.ID
+	}
+	segment.ProjectID = projectID
+
+	url := fmt.Sprintf("%s/projects/%d/segments/%d/", c.baseURL, *projectID, *segment.ID)
+	resp, err := c.client.R().SetBody(segment).SetResult(segment).Put(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error updating segment: %s", resp)
+	}
+
+	return nil
+}
