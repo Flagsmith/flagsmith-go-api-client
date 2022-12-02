@@ -29,8 +29,8 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 }
 
 // Get the feature state associated with the environment for a given feature
-func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureName string) (*FeatureState, error) {
-	url := fmt.Sprintf("%s/environments/%s/featurestates/", c.baseURL, environmentAPIKey)
+func (c *Client) GetEnvironmentFeatureState(environmentKey string, featureName string) (*FeatureState, error) {
+	url := fmt.Sprintf("%s/environments/%s/featurestates/", c.baseURL, environmentKey)
 	result := struct {
 		Results []*FeatureState `json:"results"`
 	}{}
@@ -52,21 +52,61 @@ func (c *Client) GetEnvironmentFeatureState(environmentAPIKey string, featureNam
 	return featureState, nil
 
 }
+func (c *Client) GetFeatureState(featureStateUUID string) (*FeatureState, error) {
+	url := fmt.Sprintf("%s/features/featurestates/get-by-uuid/%s/", c.baseURL, featureStateUUID)
+	featureState := FeatureState{}
+	resp, err := c.client.R().
+		SetResult(&featureState).Get(url)
 
-// Update the feature state
-func (c *Client) UpdateFeatureState(featureState *FeatureState) (*FeatureState, error) {
-	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureState.ID)
-	updatedFeatureState := FeatureState{}
-	resp, err := c.client.R().SetBody(featureState).SetResult(&updatedFeatureState).Put(url)
 	if err != nil {
 		return nil, err
 	}
+
 	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error updating feature state: %s", resp.Status())
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature state: %s", resp)
 	}
-	return &updatedFeatureState, nil
+	if featureState.FeatureSegment != nil {
+		// load feature segment data
+		featureSegment, err := c.GetFeatureSegmentByID(*featureState.FeatureSegment)
+		if err != nil {
+			return nil, err
+		}
+		featureState.Segment = featureSegment.Segment
+		featureState.SegmentPriority = featureSegment.Priority
+	}
+
+	return &featureState, nil
 }
 
+// Update the feature state
+func (c *Client) UpdateFeatureState(featureState *FeatureState) error {
+	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureState.ID)
+	resp, err := c.client.R().SetBody(featureState).SetResult(&featureState).Put(url)
+	if err != nil {
+		return err
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error updating feature state: %s", resp.Status())
+	}
+	// If it's a segment override, update the segment priority
+	if featureState.FeatureSegment != nil {
+		SegmentPriority := featureState.SegmentPriority
+		Segment := featureState.Segment
+
+		// Update segment priority
+		err := c.UpdateFeatureSegmentPriority(*featureState.FeatureSegment, SegmentPriority)
+		if err != nil {
+			return err
+		}
+		featureState.SegmentPriority = SegmentPriority
+		featureState.Segment = Segment
+
+	}
+
+	return nil
+}
+
+// Create segment override
 func (c *Client) GetProject(projectUUID string) (*Project, error) {
 	url := fmt.Sprintf("%s/projects/get-by-uuid/%s/", c.baseURL, projectUUID)
 	project := Project{}
@@ -345,4 +385,128 @@ func (c *Client) UpdateSegment(segment *Segment) error {
 	}
 
 	return nil
+}
+
+func (c *Client) GetEnvironment(apiKey string) (*Environment, error) {
+	url := fmt.Sprintf("%s/environments/%s/", c.baseURL, apiKey)
+	environment := Environment{}
+	resp, err := c.client.R().
+		SetResult(&environment).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting environment: %s", resp)
+	}
+
+	return &environment, nil
+}
+
+func (c *Client) GetFeatureSegmentByID(featureSegmentID int64) (*FeatureSegment, error) {
+	url := fmt.Sprintf("%s/features/feature-segments/%d/", c.baseURL, featureSegmentID)
+	featureSegment := FeatureSegment{}
+	resp, err := c.client.R().
+		SetResult(&featureSegment).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature segment: %s", resp)
+	}
+	return &featureSegment, nil
+}
+
+func (c *Client) UpdateFeatureSegmentPriority(featureSegmentID, priority int64) error {
+	body := []struct {
+		Priority int64 `json:"priority"`
+		ID       int64 `json:"id"`
+	}{
+		{
+			Priority: priority,
+			ID:       featureSegmentID,
+		},
+	}
+	url := fmt.Sprintf("%s/features/feature-segments/update-priorities/", c.baseURL)
+	resp, err := c.client.R().SetBody(body).Post(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error updating feature segment priority: %s", resp)
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteFeatureSegment(featureSegmentID int64) error {
+	url := fmt.Sprintf("%s/features/feature-segments/%d/", c.baseURL, featureSegmentID)
+
+	resp, err := c.client.R().Delete(url)
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error deleting feature segment: %s", resp)
+	}
+	return nil
+}
+
+func (c *Client) CreateFeatureSegment(featureSegment *FeatureSegment) error {
+	url := fmt.Sprintf("%s/features/feature-segments/", c.baseURL)
+	resp, err := c.client.R().SetBody(featureSegment).SetResult(featureSegment).Post(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error creating feature segment: %s", resp)
+	}
+
+	return nil
+}
+
+func (c *Client) CreateSegmentOverride(featureState *FeatureState) error {
+	// fetch and set environment
+	environnmetKey := featureState.EnvironmentKey
+	environment, err := c.GetEnvironment(environnmetKey)
+	if err != nil {
+		return err
+	}
+	featureState.Environment = &environment.ID
+
+	// Create and set feature segment
+	featureSegment := FeatureSegment{
+		Feature:     featureState.Feature,
+		Environment: environment.ID,
+		Segment:     featureState.Segment,
+		Priority:    featureState.SegmentPriority,
+	}
+
+	err = c.CreateFeatureSegment(&featureSegment)
+	if err != nil {
+		return err
+	}
+	featureState.FeatureSegment = featureSegment.ID
+
+	// Finally, create the feature state
+	url := fmt.Sprintf("%s/features/featurestates/", c.baseURL)
+	resp, err := c.client.R().SetBody(featureState).SetResult(&featureState).Post(url)
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error creating segment override feature state: %s", resp.Status())
+	}
+
+	return nil
+
 }

@@ -49,20 +49,28 @@ type FeatureStateValue struct {
 }
 
 type FeatureState struct {
-	ID                int64              `json:"id"`
+	ID                int64              `json:"id,omitempty"`
+	UUID              string             `json:"uuid,omitempty"`
 	FeatureStateValue *FeatureStateValue `json:"feature_state_value"`
 	Enabled           bool               `json:"enabled"`
 	Feature           int64              `json:"feature"`
-	Environment       int64              `json:"environment"`
+	Environment       *int64             `json:"environment"`
+	FeatureSegment    *int64             `json:"feature_segment,omitempty"`
+
+	EnvironmentKey  string `json:"-"`
+	Segment         int64  `json:"-"`
+	SegmentPriority int64  `json:"-"`
 }
 
 func (fs *FeatureState) UnmarshalJSON(data []byte) error {
 	var obj struct {
 		ID                int64           `json:"id"`
+		UUID              string          `json:"uuid"`
 		FeatureStateValue json.RawMessage `json:"feature_state_value"`
 		Enabled           bool            `json:"enabled"`
 		Feature           int64           `json:"feature"`
-		Environment       int64           `json:"environment"`
+		Environment       *int64          `json:"environment"`
+		FeatureSegment    *int64          `json:"feature_segment"`
 	}
 
 	err := json.Unmarshal(data, &obj)
@@ -74,6 +82,8 @@ func (fs *FeatureState) UnmarshalJSON(data []byte) error {
 	fs.Enabled = obj.Enabled
 	fs.Feature = obj.Feature
 	fs.Environment = obj.Environment
+	fs.FeatureSegment = obj.FeatureSegment
+	fs.UUID = obj.UUID
 
 	// If the feature state value is a struct(i.e: we are using `/features/featurestates/` endpoint) then unmarshal, set
 	// and exit
@@ -141,4 +151,20 @@ type Segment struct {
 	ProjectUUID string  `json:"-"`
 	FeatureID   *int64  `json:"feature,omitempty"`
 	Rules       []Rule  `json:"rules"`
+}
+
+type FeatureSegment struct {
+	ID          *int64 `json:"id,omitempty"`
+	Feature     int64  `json:"feature"`
+	Segment     int64  `json:"segment"`
+	Environment int64  `json:"environment"`
+	Priority    int64  `json:"priority"`
+}
+
+type Environment struct {
+	ID          int64  `json:"id,omitempty"`
+	Name        string `json:"name"`
+	APIKey      string `json:"api_key"`
+	Description string `json:"description"`
+	Project     int64  `json:"project"`
 }
