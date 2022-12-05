@@ -58,8 +58,8 @@ type FeatureState struct {
 	FeatureSegment    *int64             `json:"feature_segment,omitempty"`
 
 	EnvironmentKey  string `json:"-"`
-	Segment         int64  `json:"-"`
-	SegmentPriority int64  `json:"-"`
+	Segment         *int64 `json:"-"`
+	SegmentPriority *int64 `json:"-"`
 }
 
 func (fs *FeatureState) UnmarshalJSON(data []byte) error {
@@ -156,9 +156,9 @@ type Segment struct {
 type FeatureSegment struct {
 	ID          *int64 `json:"id,omitempty"`
 	Feature     int64  `json:"feature"`
-	Segment     int64  `json:"segment"`
+	Segment     *int64 `json:"segment"`
 	Environment int64  `json:"environment"`
-	Priority    int64  `json:"priority"`
+	Priority    *int64 `json:"priority"`
 }
 
 type Environment struct {

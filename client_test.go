@@ -66,7 +66,6 @@ const MasterAPIKey = "master_api_key"
 func TestGetFeatureState(t *testing.T) {
 	// Given
 	environmentKey := "test_env_key"
-	featureName := "test_feature"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, fmt.Sprintf("/api/v1/environments/%s/featurestates/", environmentKey), req.URL.Path)
@@ -82,7 +81,7 @@ func TestGetFeatureState(t *testing.T) {
 	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
 
 	// When
-	fs, err := client.GetEnvironmentFeatureState(environmentKey, featureName)
+	fs, err := client.GetEnvironmentFeatureState(environmentKey, FeatureID)
 
 	// Then
 	// assert that we did not receive an error
@@ -1103,8 +1102,8 @@ func TestGetFeatureSegmentByID(t *testing.T) {
 
 	// assert that the feature segment is as expected
 	assert.Equal(t, FeatureSegmentID, *featureSegment.ID)
-	assert.Equal(t, SegmentID, featureSegment.Segment)
-	assert.Equal(t, int64(0), featureSegment.Priority)
+	assert.Equal(t, SegmentID, *featureSegment.Segment)
+	assert.Equal(t, int64(0), *featureSegment.Priority)
 
 }
 
@@ -1140,10 +1139,12 @@ func TestDeleteFeatureSegment(t *testing.T) {
 
 func TestCreateFeatureSegment(t *testing.T) {
 	// Given
+	segmentID := SegmentID
+	priority := int64(0)
 	featureSegment := flagsmithapi.FeatureSegment{
 		Feature:     FeatureID,
-		Segment:     SegmentID,
-		Priority:    0,
+		Segment:     &segmentID,
+		Priority:    &priority,
 		Environment: EnvironmentID,
 	}
 
@@ -1177,8 +1178,8 @@ func TestCreateFeatureSegment(t *testing.T) {
 	// assert that the feature segment is as expected
 	assert.Equal(t, FeatureSegmentID, *featureSegment.ID)
 	assert.Equal(t, FeatureID, featureSegment.Feature)
-	assert.Equal(t, SegmentID, featureSegment.Segment)
-	assert.Equal(t, int64(0), featureSegment.Priority)
+	assert.Equal(t, SegmentID, *featureSegment.Segment)
+	assert.Equal(t, int64(0), *featureSegment.Priority)
 
 }
 
@@ -1322,6 +1323,7 @@ func TestUpdateFeatureStateUpdatesPriority(t *testing.T) {
 
 	environmentID := EnvironmentID
 	featureSegmentID := FeatureSegmentID
+	priority := int64(1)
 
 	fs := flagsmithapi.FeatureState{
 		ID:                1,
@@ -1330,6 +1332,7 @@ func TestUpdateFeatureStateUpdatesPriority(t *testing.T) {
 		Feature:           FeatureID,
 		Environment:       &environmentID,
 		FeatureSegment:    &featureSegmentID,
+		SegmentPriority:   &priority,
 	}
 
 	expectedRequestBody := fmt.Sprintf(`{"id":1,"feature_state_value":null,`+

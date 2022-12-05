@@ -3,6 +3,8 @@ package flagsmithapi
 import (
 	"fmt"
 
+	"strconv"
+
 	"github.com/go-resty/resty/v2"
 )
 
@@ -29,14 +31,14 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 }
 
 // Get the feature state associated with the environment for a given feature
-func (c *Client) GetEnvironmentFeatureState(environmentKey string, featureName string) (*FeatureState, error) {
+func (c *Client) GetEnvironmentFeatureState(environmentKey string, featureID int64) (*FeatureState, error) {
 	url := fmt.Sprintf("%s/environments/%s/featurestates/", c.baseURL, environmentKey)
 	result := struct {
 		Results []*FeatureState `json:"results"`
 	}{}
 	resp, err := c.client.R().
 		SetQueryParams(map[string]string{
-			"feature_name": featureName,
+			"feature": strconv.FormatInt(featureID, 10),
 		}).
 		SetResult(&result).
 		Get(url)
@@ -94,7 +96,7 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState) error {
 		Segment := featureState.Segment
 
 		// Update segment priority
-		err := c.UpdateFeatureSegmentPriority(*featureState.FeatureSegment, SegmentPriority)
+		err := c.UpdateFeatureSegmentPriority(*featureState.FeatureSegment, *SegmentPriority)
 		if err != nil {
 			return err
 		}
