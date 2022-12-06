@@ -1069,7 +1069,7 @@ const GetFeatureSegmentJson = `{
 	"is_feature_specific": false
 }`
 
-const CreateFeatureSegmentJson = `{
+const CreateFeatureSegmentResponseJson = `{
 	"id": 400,
 	"uuid": "7b7bbb74-00bc-4d14-aabe-3d44debe4662",
 	"feature": 1,
@@ -1161,7 +1161,7 @@ func TestCreateFeatureSegment(t *testing.T) {
 		assert.Equal(t, expectedRequestBody, string(rawBody))
 
 		rw.Header().Set("Content-Type", "application/json")
-		_, err = io.WriteString(rw, CreateFeatureSegmentJson)
+		_, err = io.WriteString(rw, CreateFeatureSegmentResponseJson)
 		assert.NoError(t, err)
 
 	}))
@@ -1200,7 +1200,7 @@ func TestUpdateFeatureSegmentPriority(t *testing.T) {
 		assert.Equal(t, expectedRequestBody, string(rawBody))
 
 		rw.Header().Set("Content-Type", "application/json")
-		_, err = io.WriteString(rw, CreateFeatureSegmentJson)
+		_, err = io.WriteString(rw, CreateFeatureSegmentResponseJson)
 		assert.NoError(t, err)
 
 	}))
@@ -1276,7 +1276,7 @@ func TestCreateSegmentOverride(t *testing.T) {
 		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
 
 		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, CreateFeatureSegmentJson)
+		_, err := io.WriteString(rw, CreateFeatureSegmentResponseJson)
 		assert.NoError(t, err)
 	})
 	mux.HandleFunc("/api/v1/features/featurestates/", func(rw http.ResponseWriter, req *http.Request) {
