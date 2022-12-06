@@ -90,7 +90,7 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState, updateSegmentPri
 	if !resp.IsSuccess() {
 		return fmt.Errorf("flagsmithapi: Error updating feature state: %s", resp.Status())
 	}
-	// If it's a segment override, update the segment priority
+
 	if updateSegmentPriority && featureState.FeatureSegment != nil {
 		SegmentPriority := featureState.SegmentPriority
 		Segment := featureState.Segment
@@ -108,7 +108,6 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState, updateSegmentPri
 	return nil
 }
 
-// Create segment override
 func (c *Client) GetProject(projectUUID string) (*Project, error) {
 	url := fmt.Sprintf("%s/projects/get-by-uuid/%s/", c.baseURL, projectUUID)
 	project := Project{}
