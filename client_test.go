@@ -60,14 +60,12 @@ const UpdateFeatureStateResponseJson = `
 }
 `
 const FeatureID int64 = 1
-const EnvironmentID int64 = 100
 const FeatureUUID = "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
 const MasterAPIKey = "master_api_key"
 
 func TestGetFeatureState(t *testing.T) {
 	// Given
 	environmentKey := "test_env_key"
-	featureName := "test_feature"
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, fmt.Sprintf("/api/v1/environments/%s/featurestates/", environmentKey), req.URL.Path)
@@ -83,7 +81,7 @@ func TestGetFeatureState(t *testing.T) {
 	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
 
 	// When
-	fs, err := client.GetEnvironmentFeatureState(environmentKey, featureName)
+	fs, err := client.GetEnvironmentFeatureState(environmentKey, FeatureID)
 
 	// Then
 	// assert that we did not receive an error
@@ -95,7 +93,7 @@ func TestGetFeatureState(t *testing.T) {
 	// assert that the returned feature state is correct
 	assert.Equal(t, int64(1), fs.ID)
 	assert.Equal(t, FeatureID, fs.Feature)
-	assert.Equal(t, EnvironmentID, fs.Environment)
+	assert.Equal(t, EnvironmentID, *fs.Environment)
 	assert.Equal(t, false, fs.Enabled)
 
 	assert.Equal(t, "some_value", *fs.FeatureStateValue.StringValue)
@@ -113,12 +111,14 @@ func TestUpdateFeatureState(t *testing.T) {
 		Type:        "unicode",
 		StringValue: &newFsValue,
 	}
+
+	environmentID := EnvironmentID
 	fs := flagsmithapi.FeatureState{
 		ID:                1,
 		FeatureStateValue: &fsValue,
 		Enabled:           true,
 		Feature:           FeatureID,
-		Environment:       EnvironmentID,
+		Environment:       &environmentID,
 	}
 
 	expectedRequestBody := fmt.Sprintf(`{"id":1,"feature_state_value":{"type":"unicode","string_value":"updated_value","integer_value":null,"boolean_value":null},`+
@@ -142,7 +142,7 @@ func TestUpdateFeatureState(t *testing.T) {
 
 	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
 
-	updated_fs, err := client.UpdateFeatureState(&fs)
+	err := client.UpdateFeatureState(&fs, false)
 	assert.NoError(t, err)
 
 	var nilIntPointer *int64
@@ -151,10 +151,10 @@ func TestUpdateFeatureState(t *testing.T) {
 	// assert that the returned feature state is correct
 	assert.Equal(t, int64(1), fs.ID)
 	assert.Equal(t, FeatureID, fs.Feature)
-	assert.Equal(t, EnvironmentID, fs.Environment)
+	assert.Equal(t, EnvironmentID, *fs.Environment)
 	assert.Equal(t, true, fs.Enabled)
 
-	assert.Equal(t, newFsValue, *updated_fs.FeatureStateValue.StringValue)
+	assert.Equal(t, newFsValue, *fs.FeatureStateValue.StringValue)
 	assert.Equal(t, "unicode", fs.FeatureStateValue.Type)
 	assert.Equal(t, nilIntPointer, fs.FeatureStateValue.IntegerValue)
 	assert.Equal(t, nilBoolPointer, fs.FeatureStateValue.BooleanValue)
@@ -1013,5 +1013,372 @@ func TestUpdateSegment(t *testing.T) {
 	assert.Equal(t, "EQUAL", segment.Rules[0].Rules[0].Conditions[0].Operator)
 	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Property)
 	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Value)
+
+}
+
+const EnvironmentID int64 = 100
+const EnvironmentAPIKey = "environment_api_key"
+const EnvironmentJson = `{
+	"id": 100,
+	"name": "Development",
+	"api_key": "environment_api_key",
+	"description": null,
+	"project": 10,
+	"minimum_change_request_approvals": 0,
+	"allow_client_traits": true
+}`
+
+func TestGetEnvironment(t *testing.T) {
+	// Given
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/environments/%s/", EnvironmentAPIKey), req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, EnvironmentJson)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	environment, err := client.GetEnvironment(EnvironmentAPIKey)
+
+	// Then
+	// assert that we did not receive an error
+	assert.NoError(t, err)
+
+	// assert that the environment is as expected
+	assert.Equal(t, EnvironmentID, environment.ID)
+	assert.Equal(t, "Development", environment.Name)
+	assert.Equal(t, EnvironmentAPIKey, environment.APIKey)
+	assert.Equal(t, ProjectID, environment.Project)
+}
+
+// 400 is arbitrarily chosen to avoid collision with other ids
+const FeatureSegmentID = int64(400)
+const GetFeatureSegmentJson = `{
+	"id": 400,
+	"uuid": "7b7bbb74-00bc-4d14-aabe-3d44debe4662",
+	"segment": 300,
+	"priority": 0,
+	"environment": 100,
+	"segment_name": "is_not_set",
+	"is_feature_specific": false
+}`
+
+const CreateFeatureSegmentResponseJson = `{
+	"id": 400,
+	"uuid": "7b7bbb74-00bc-4d14-aabe-3d44debe4662",
+	"feature": 1,
+	"segment": 300,
+	"priority": 0,
+	"environment": 100
+}`
+
+func TestGetFeatureSegmentByID(t *testing.T) {
+	// Given
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/features/feature-segments/%d/", FeatureSegmentID), req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetFeatureSegmentJson)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	featureSegment, err := client.GetFeatureSegmentByID(FeatureSegmentID)
+
+	// Then
+	// assert that we did not receive an error
+	assert.NoError(t, err)
+
+	// assert that the feature segment is as expected
+	assert.Equal(t, FeatureSegmentID, *featureSegment.ID)
+	assert.Equal(t, SegmentID, *featureSegment.Segment)
+	assert.Equal(t, int64(0), *featureSegment.Priority)
+
+}
+
+func TestDeleteFeatureSegment(t *testing.T) {
+	// Given
+	requestReceived := struct {
+		mu                sync.Mutex
+		isRequestReceived bool
+	}{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		requestReceived.mu.Lock()
+		requestReceived.isRequestReceived = true
+		requestReceived.mu.Unlock()
+
+		assert.Equal(t, fmt.Sprintf("/api/v1/features/feature-segments/%d/", FeatureSegmentID), req.URL.Path)
+		assert.Equal(t, "DELETE", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.DeleteFeatureSegment(FeatureSegmentID)
+
+	// Then
+	requestReceived.mu.Lock()
+	assert.True(t, requestReceived.isRequestReceived)
+	assert.NoError(t, err)
+}
+
+func TestCreateFeatureSegment(t *testing.T) {
+	// Given
+	segmentID := SegmentID
+	priority := int64(0)
+	featureSegment := flagsmithapi.FeatureSegment{
+		Feature:     FeatureID,
+		Segment:     &segmentID,
+		Priority:    &priority,
+		Environment: EnvironmentID,
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"feature":%d,"segment":%d,"environment":%d,"priority":0}`, FeatureID, SegmentID, EnvironmentID)
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/features/feature-segments/", req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureSegmentResponseJson)
+		assert.NoError(t, err)
+
+	}))
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateFeatureSegment(&featureSegment)
+
+	// Then
+	// assert that we did not receive an error
+	assert.NoError(t, err)
+
+	// assert that the feature segment is as expected
+	assert.Equal(t, FeatureSegmentID, *featureSegment.ID)
+	assert.Equal(t, FeatureID, featureSegment.Feature)
+	assert.Equal(t, SegmentID, *featureSegment.Segment)
+	assert.Equal(t, int64(0), *featureSegment.Priority)
+
+}
+
+func TestUpdateFeatureSegmentPriority(t *testing.T) {
+	// Given
+	priority := int64(10)
+
+	expectedRequestBody := fmt.Sprintf(`[{"priority":%d,"id":%d}]`, priority, FeatureSegmentID)
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "/api/v1/features/feature-segments/update-priorities/", req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureSegmentResponseJson)
+		assert.NoError(t, err)
+
+	}))
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateFeatureSegmentPriority(FeatureSegmentID, priority)
+
+	// Then
+	// assert that we did not receive an error
+	assert.NoError(t, err)
+
+}
+
+const SegmentOverrideFeatureStateResponseJson = `
+{
+  "id": 1,
+  "feature_state_value": {
+    "type": "unicode",
+    "string_value": "some_value",
+    "integer_value": null,
+    "boolean_value": null
+  },
+  "multivariate_feature_state_values": [],
+  "enabled": true,
+  "created_at": "2022-04-02T06:32:07.130623Z",
+  "updated_at": "2022-06-23T06:58:53.519204Z",
+  "version": 1,
+  "live_from": "2022-04-02T06:32:07.161622Z",
+  "feature": 1,
+  "feature_segment":400,
+  "environment": 100,
+  "identity": null,
+  "change_request": null
+}
+`
+
+func TestCreateSegmentOverride(t *testing.T) {
+	// Given
+	fsStringValue := "some_value"
+
+	fsValue := flagsmithapi.FeatureStateValue{
+		Type:        "unicode",
+		StringValue: &fsStringValue,
+	}
+
+	fs := flagsmithapi.FeatureState{
+		ID:                1,
+		FeatureStateValue: &fsValue,
+		Enabled:           true,
+		Feature:           FeatureID,
+		EnvironmentKey:    EnvironmentAPIKey,
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"id":1,"feature_state_value":{"type":"unicode","string_value":"some_value","integer_value":null,"boolean_value":null},`+
+		`"enabled":true,"feature":%d,"environment":%d,"feature_segment":%d}`, FeatureID, EnvironmentID, FeatureSegmentID)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/environments/%s/", EnvironmentAPIKey), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, EnvironmentJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc("/api/v1/features/feature-segments/", func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, CreateFeatureSegmentResponseJson)
+		assert.NoError(t, err)
+	})
+	mux.HandleFunc("/api/v1/features/featurestates/", func(rw http.ResponseWriter, req *http.Request) {
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, SegmentOverrideFeatureStateResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateSegmentOverride(&fs)
+
+	// Then
+	// assert that we did not receive an error
+	assert.NoError(t, err)
+
+	var nilIntPointer *int64
+	var nilBoolPointer *bool
+
+	// assert that the returned feature state is correct
+	assert.Equal(t, int64(1), fs.ID)
+	assert.Equal(t, FeatureID, fs.Feature)
+	assert.Equal(t, EnvironmentID, *fs.Environment)
+	assert.Equal(t, FeatureSegmentID, *fs.FeatureSegment)
+
+	assert.Equal(t, "some_value", *fs.FeatureStateValue.StringValue)
+	assert.Equal(t, "unicode", fs.FeatureStateValue.Type)
+	assert.Equal(t, nilIntPointer, fs.FeatureStateValue.IntegerValue)
+	assert.Equal(t, nilBoolPointer, fs.FeatureStateValue.BooleanValue)
+
+}
+
+func TestUpdateFeatureStateUpdatesPriority(t *testing.T) {
+	// Given
+
+	environmentID := EnvironmentID
+	featureSegmentID := FeatureSegmentID
+	priority := int64(1)
+
+	fs := flagsmithapi.FeatureState{
+		ID:                1,
+		FeatureStateValue: nil,
+		Enabled:           true,
+		Feature:           FeatureID,
+		Environment:       &environmentID,
+		FeatureSegment:    &featureSegmentID,
+		SegmentPriority:   &priority,
+	}
+
+	expectedRequestBody := fmt.Sprintf(`{"id":1,"feature_state_value":null,`+
+		`"enabled":true,"feature":%d,"environment":%d,"feature_segment":%d}`, FeatureID, EnvironmentID, FeatureSegmentID)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/environments/%s/", EnvironmentAPIKey), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, EnvironmentJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc("/api/v1/features/feature-segments/update-priorities/", func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+	})
+	mux.HandleFunc("/api/v1/features/featurestates/", func(rw http.ResponseWriter, req *http.Request) {
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, SegmentOverrideFeatureStateResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	err := client.UpdateFeatureState(&fs, true)
+	assert.NoError(t, err)
+
+	// assert that the returned feature state is correct
+	assert.Equal(t, int64(1), fs.ID)
+	assert.Equal(t, FeatureID, fs.Feature)
+	assert.Equal(t, EnvironmentID, *fs.Environment)
+	assert.Equal(t, true, fs.Enabled)
 
 }
