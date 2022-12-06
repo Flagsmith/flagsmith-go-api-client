@@ -142,7 +142,7 @@ func TestUpdateFeatureState(t *testing.T) {
 
 	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
 
-	err := client.UpdateFeatureState(&fs)
+	err := client.UpdateFeatureState(&fs, false)
 	assert.NoError(t, err)
 
 	var nilIntPointer *int64
@@ -1372,7 +1372,7 @@ func TestUpdateFeatureStateUpdatesPriority(t *testing.T) {
 
 	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
 
-	err := client.UpdateFeatureState(&fs)
+	err := client.UpdateFeatureState(&fs, true)
 	assert.NoError(t, err)
 
 	// assert that the returned feature state is correct

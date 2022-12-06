@@ -81,7 +81,7 @@ func (c *Client) GetFeatureState(featureStateUUID string) (*FeatureState, error)
 }
 
 // Update the feature state
-func (c *Client) UpdateFeatureState(featureState *FeatureState) error {
+func (c *Client) UpdateFeatureState(featureState *FeatureState, updateSegmentPriority bool) error {
 	url := fmt.Sprintf("%s/features/featurestates/%d/", c.baseURL, featureState.ID)
 	resp, err := c.client.R().SetBody(featureState).SetResult(&featureState).Put(url)
 	if err != nil {
@@ -91,7 +91,7 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState) error {
 		return fmt.Errorf("flagsmithapi: Error updating feature state: %s", resp.Status())
 	}
 	// If it's a segment override, update the segment priority
-	if featureState.FeatureSegment != nil {
+	if updateSegmentPriority && featureState.FeatureSegment != nil {
 		SegmentPriority := featureState.SegmentPriority
 		Segment := featureState.Segment
 
