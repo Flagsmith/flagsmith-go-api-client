@@ -204,27 +204,27 @@ func TestGetProject(t *testing.T) {
 
 const CreateFeatureResponseJson = `
 {
-  "id": 1,
-  "name": "test_feature",
-  "project": 10,
-  "type": "STANDARD",
-  "default_enabled": false,
-  "initial_value": null,
-  "created_date": "2022-08-24T03:34:55.862503Z",
-  "description": null,
-  "tags": [],
-  "multivariate_options": [],
-  "is_archived": false,
-  "owners": [
-    {
-      "id": 1,
-      "email": "some_user@email.com"
-    },
-    {
-      "id": 2,
-      "email": "some_other_user@email.com"
-    }
-  ]
+    "id": 1,
+    "name": "test_feature",
+    "project": 10,
+    "type": "STANDARD",
+    "default_enabled": false,
+    "initial_value": null,
+    "created_date": "2022-08-24T03:34:55.862503Z",
+    "description": null,
+    "tags": [],
+    "multivariate_options": [],
+    "is_archived": false,
+    "owners": [
+        {
+            "id": 1,
+            "email": "some_user@email.com"
+        },
+        {
+            "id": 2,
+            "email": "some_other_user@email.com"
+        }
+    ]
 }
 
 `
