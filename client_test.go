@@ -464,8 +464,7 @@ func TestAddFeatureOwners(t *testing.T) {
 		Description: &description,
 	}
 	ownerIDs := []int64{1, 2}
-
-	expectedRequestBody := fmt.Sprintf(`{"user_ids":[1,2]}`)
+	expectedRequestBody := `{"user_ids":[1,2]}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/add-owners/", ProjectID, FeatureID), req.URL.Path)
@@ -510,7 +509,7 @@ func TestRemoveFeatureOwners(t *testing.T) {
 	}
 	ownerIDs := []int64{1, 2}
 
-	expectedRequestBody := fmt.Sprintf(`{"user_ids":[1,2]}`)
+	expectedRequestBody := `{"user_ids":[1,2]}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/remove-owners/", ProjectID, FeatureID), req.URL.Path)

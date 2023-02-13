@@ -163,6 +163,9 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 
 func (c *Client) CreateFeature(feature *Feature) error {
 	projectID, err := c.getProjectID(feature)
+	if err != nil {
+		return err
+	}
 	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, projectID)
 
 	resp, err := c.client.R().SetBody(feature).SetResult(&feature).Post(url)
@@ -195,6 +198,9 @@ func (c *Client) DeleteFeature(projectID, featureID int64) error {
 
 func (c *Client) UpdateFeature(feature *Feature) error {
 	projectID, err := c.getProjectID(feature)
+	if err != nil {
+		return err
+	}
 	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, *feature.ID)
 	resp, err := c.client.R().SetBody(feature).SetResult(feature).Put(url)
 
@@ -214,6 +220,7 @@ func (c *Client) getProjectID(feature *Feature) (int64, error) {
 		return *feature.ProjectID, nil
 	}
 	project, err := c.GetProject(feature.ProjectUUID)
+
 	if err != nil {
 		return 0, err
 	}
