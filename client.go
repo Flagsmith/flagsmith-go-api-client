@@ -227,10 +227,10 @@ func (c *Client) getProjectID(feature *Feature) (int64, error) {
 	return project.ID, nil
 }
 
-func (c *Client) manageFeatureOwners(feature *Feature, ownerIDs []int64, endpoint string) error {
+func (c *Client) manageFeatureOwners(feature *Feature, ownerIDs []int64, endpoint string) (*resty.Response, error) {
 	projectID, err := c.getProjectID(feature)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, projectID, *feature.ID, endpoint)
 	body := struct {
@@ -239,24 +239,31 @@ func (c *Client) manageFeatureOwners(feature *Feature, ownerIDs []int64, endpoin
 		UserIDs: ownerIDs,
 	}
 	resp, err := c.client.R().SetBody(body).Post(url)
+	return resp, err
 
-	if err != nil {
-		return err
-	}
-
-	if !resp.IsSuccess() {
-		return fmt.Errorf("flagsmithapi: Error %s owners from feature: %s", endpoint, resp)
-	}
-
-	return nil
 }
 
 func (c *Client) AddFeatureOwners(feature *Feature, ownerIDs []int64) error {
-	return c.manageFeatureOwners(feature, ownerIDs, "add-owners")
+	resp, err := c.manageFeatureOwners(feature, ownerIDs, "add-owners")
+	if err != nil {
+		return err
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error adding feature owners: %s", resp)
+	}
+	return nil
+
 }
 
 func (c *Client) RemoveFeatureOwners(feature *Feature, ownerIDs []int64) error {
-	return c.manageFeatureOwners(feature, ownerIDs, "remove-owners")
+	resp, err := c.manageFeatureOwners(feature, ownerIDs, "remove-owners")
+	if err != nil {
+		return nil
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error removing feature owners: %s", resp)
+	}
+	return nil
 }
 
 func (c *Client) GetFeatureMVOption(featureUUID, mvOptionUUID string) (*FeatureMultivariateOption, error) {
