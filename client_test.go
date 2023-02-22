@@ -215,8 +215,18 @@ const CreateFeatureResponseJson = `
     "tags": [],
     "multivariate_options": [],
     "is_archived": false,
-    "owners": []
+    "owners": [
+        {
+            "id": 1,
+            "email": "some_user@email.com"
+        },
+        {
+            "id": 2,
+            "email": "some_other_user@email.com"
+        }
+    ]
 }
+
 `
 const FeatureName = "test_feature"
 
@@ -429,10 +439,102 @@ func TestGetFeature(t *testing.T) {
 	assert.Equal(t, false, feature.DefaultEnabled)
 	assert.Equal(t, false, feature.IsArchived)
 
+	expectedOwners := []int64{1, 2}
+	assert.Equal(t, &expectedOwners, feature.Owners)
+
 	assert.Equal(t, "", feature.InitialValue)
 
 	assert.Equal(t, ProjectID, *feature.ProjectID)
 	assert.Equal(t, ProjectUUID, feature.ProjectUUID)
+
+}
+
+func TestAddFeatureOwners(t *testing.T) {
+	// Given
+	projectID := ProjectID
+	featureID := FeatureID
+
+	description := "feature description"
+
+	feature := flagsmithapi.Feature{
+		Name:        FeatureName,
+		ID:          &featureID,
+		ProjectUUID: ProjectUUID,
+		ProjectID:   &projectID,
+		Description: &description,
+	}
+	ownerIDs := []int64{1, 2}
+	expectedRequestBody := `{"user_ids":[1,2]}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/add-owners/", ProjectID, FeatureID), req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.AddFeatureOwners(&feature, ownerIDs)
+
+	// Then
+	assert.NoError(t, err)
+
+}
+
+func TestRemoveFeatureOwners(t *testing.T) {
+	// Given
+	projectID := ProjectID
+	featureID := FeatureID
+
+	description := "feature description"
+
+	feature := flagsmithapi.Feature{
+		Name:        FeatureName,
+		ID:          &featureID,
+		ProjectUUID: ProjectUUID,
+		ProjectID:   &projectID,
+		Description: &description,
+	}
+	ownerIDs := []int64{1, 2}
+
+	expectedRequestBody := `{"user_ids":[1,2]}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/remove-owners/", ProjectID, FeatureID), req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.RemoveFeatureOwners(&feature, ownerIDs)
+
+	// Then
+	assert.NoError(t, err)
 
 }
 

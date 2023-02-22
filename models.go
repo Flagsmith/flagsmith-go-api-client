@@ -41,6 +41,47 @@ type Feature struct {
 	ProjectID   *int64 `json:"project,omitempty"`
 }
 
+func (f *Feature) UnmarshalJSON(data []byte) error {
+	type owner struct {
+		ID int64 `json:"id"`
+	}
+	var obj struct {
+		Name           string  `json:"name"`
+		UUID           string  `json:"uuid,omitempty"`
+		ID             *int64  `json:"id,omitempty"`
+		Type           *string `json:"type,omitempty"`
+		Description    *string `json:"description,omitempty"`
+		InitialValue   string  `json:"initial_value,omitempty"`
+		DefaultEnabled bool    `json:"default_enabled,omitempty"`
+		IsArchived     bool    `json:"is_archived,omitempty"`
+		Owners         []owner `json:"owners,omitempty"`
+		ProjectID      *int64  `json:"project,omitempty"`
+	}
+
+	err := json.Unmarshal(data, &obj)
+
+	if err != nil {
+		return err
+	}
+
+	f.Name = obj.Name
+	f.UUID = obj.UUID
+	f.ID = obj.ID
+	f.Type = obj.Type
+	f.Description = obj.Description
+	f.InitialValue = obj.InitialValue
+	f.DefaultEnabled = obj.DefaultEnabled
+	f.IsArchived = obj.IsArchived
+	f.ProjectID = obj.ProjectID
+	if obj.Owners != nil {
+		f.Owners = &[]int64{}
+		for _, o := range obj.Owners {
+			*f.Owners = append(*f.Owners, o.ID)
+		}
+	}
+	return nil
+}
+
 type FeatureStateValue struct {
 	Type         string  `json:"type"`
 	StringValue  *string `json:"string_value"`

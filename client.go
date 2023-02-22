@@ -162,16 +162,11 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 }
 
 func (c *Client) CreateFeature(feature *Feature) error {
-	projectID := feature.ProjectID
-	if projectID == nil {
-		project, err := c.GetProject(feature.ProjectUUID)
-		if err != nil {
-			return err
-		}
-		projectID = &project.ID
+	projectID, err := c.getProjectID(feature)
+	if err != nil {
+		return err
 	}
-
-	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, *projectID)
+	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, projectID)
 
 	resp, err := c.client.R().SetBody(feature).SetResult(&feature).Post(url)
 
@@ -202,16 +197,11 @@ func (c *Client) DeleteFeature(projectID, featureID int64) error {
 }
 
 func (c *Client) UpdateFeature(feature *Feature) error {
-	projectID := feature.ProjectID
-	if projectID == nil {
-		project, err := c.GetProject(feature.ProjectUUID)
-		if err != nil {
-			return err
-		}
-		projectID = &project.ID
+	projectID, err := c.getProjectID(feature)
+	if err != nil {
+		return err
 	}
-
-	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, *projectID, *feature.ID)
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, *feature.ID)
 	resp, err := c.client.R().SetBody(feature).SetResult(feature).Put(url)
 
 	if err != nil {
@@ -222,6 +212,57 @@ func (c *Client) UpdateFeature(feature *Feature) error {
 		return fmt.Errorf("flagsmithapi: Error updating feature: %s", resp)
 	}
 
+	return nil
+}
+
+func (c *Client) getProjectID(feature *Feature) (int64, error) {
+	if feature.ProjectID != nil {
+		return *feature.ProjectID, nil
+	}
+	project, err := c.GetProject(feature.ProjectUUID)
+
+	if err != nil {
+		return 0, err
+	}
+	return project.ID, nil
+}
+
+func (c *Client) manageFeatureOwners(feature *Feature, ownerIDs []int64, endpoint string) (*resty.Response, error) {
+	projectID, err := c.getProjectID(feature)
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, projectID, *feature.ID, endpoint)
+	body := struct {
+		UserIDs []int64 `json:"user_ids"`
+	}{
+		UserIDs: ownerIDs,
+	}
+	resp, err := c.client.R().SetBody(body).Post(url)
+	return resp, err
+
+}
+
+func (c *Client) AddFeatureOwners(feature *Feature, ownerIDs []int64) error {
+	resp, err := c.manageFeatureOwners(feature, ownerIDs, "add-owners")
+	if err != nil {
+		return err
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error adding feature owners: %s", resp)
+	}
+	return nil
+
+}
+
+func (c *Client) RemoveFeatureOwners(feature *Feature, ownerIDs []int64) error {
+	resp, err := c.manageFeatureOwners(feature, ownerIDs, "remove-owners")
+	if err != nil {
+		return nil
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error removing feature owners: %s", resp)
+	}
 	return nil
 }
 
