@@ -13,7 +13,7 @@ import (
 	flagsmithapi "github.com/Flagsmith/flagsmith-go-api-client"
 )
 
-const GetFeatureStateJson = `
+const GetEnvironmentFeatureStateResponseJson = `
 {
   "count": 1,
   "next": null,
@@ -21,6 +21,7 @@ const GetFeatureStateJson = `
   "results": [
     {
       "id": 1,
+      "uuid": "1a1f9371-6181-4035-93f5-09bd291b7d5e",
       "feature_state_value": "some_value",
       "multivariate_feature_state_values": [],
       "identity": null,
@@ -37,9 +38,34 @@ const GetFeatureStateJson = `
   ]
 }
 `
+const GetFeatureStateResponseJson = `
+{
+  "id": 1,
+  "uuid": "1a1f9371-6181-4035-93f5-09bd291b7d5e",
+  "feature_state_value": {
+    "type": "unicode",
+    "string_value": "some_value",
+    "integer_value": null,
+    "boolean_value": null
+  },
+  "multivariate_feature_state_values": [],
+  "enabled": false,
+  "created_at": "2022-04-02T06:32:07.130623Z",
+  "updated_at": "2022-06-23T06:58:53.519204Z",
+  "version": 1,
+  "live_from": "2022-04-02T06:32:07.161622Z",
+  "feature": 1,
+  "environment": 100,
+  "identity": null,
+  "feature_segment": null,
+  "change_request": null
+}
+`
+
 const UpdateFeatureStateResponseJson = `
 {
   "id": 1,
+  "uuid": "1a1f9371-6181-4035-93f5-09bd291b7d5e",
   "feature_state_value": {
     "type": "unicode",
     "string_value": "updated_value",
@@ -62,8 +88,10 @@ const UpdateFeatureStateResponseJson = `
 const FeatureID int64 = 1
 const FeatureUUID = "10421b1f-5f29-4da9-abe2-30f88c07c9e8"
 const MasterAPIKey = "master_api_key"
+const FeatureStateUUID = "1a1f9371-6181-4035-93f5-09bd291b7d5e"
+const FeatureStateID int64 = 1
 
-func TestGetFeatureState(t *testing.T) {
+func TestGetEnvironmentFeatureState(t *testing.T) {
 	// Given
 	environmentKey := "test_env_key"
 
@@ -73,7 +101,7 @@ func TestGetFeatureState(t *testing.T) {
 		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
 
 		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetFeatureStateJson)
+		_, err := io.WriteString(rw, GetEnvironmentFeatureStateResponseJson)
 		assert.NoError(t, err)
 	}))
 	defer server.Close()
@@ -91,7 +119,7 @@ func TestGetFeatureState(t *testing.T) {
 	var nilBoolPointer *bool
 
 	// assert that the returned feature state is correct
-	assert.Equal(t, int64(1), fs.ID)
+	assert.Equal(t, FeatureStateID, fs.ID)
 	assert.Equal(t, FeatureID, fs.Feature)
 	assert.Equal(t, EnvironmentID, *fs.Environment)
 	assert.Equal(t, false, fs.Enabled)
@@ -103,6 +131,40 @@ func TestGetFeatureState(t *testing.T) {
 
 }
 
+func TestGetFeatureState(t *testing.T) {
+	// Given
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/features/featurestates/get-by-uuid/%s/", FeatureStateUUID), req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetFeatureStateResponseJson)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	fs, err := client.GetFeatureState(FeatureStateUUID)
+
+	// Then
+	assert.NoError(t, err)
+
+	var nilIntPointer *int64
+	var nilBoolPointer *bool
+
+	assert.Equal(t, FeatureStateID, fs.ID)
+	assert.Equal(t, FeatureID, fs.Feature)
+	assert.Equal(t, EnvironmentID, *fs.Environment)
+	assert.Equal(t, false, fs.Enabled)
+
+	assert.Equal(t, "some_value", *fs.FeatureStateValue.StringValue)
+	assert.Equal(t, "unicode", fs.FeatureStateValue.Type)
+	assert.Equal(t, nilIntPointer, fs.FeatureStateValue.IntegerValue)
+	assert.Equal(t, nilBoolPointer, fs.FeatureStateValue.BooleanValue)
+}
 func TestUpdateFeatureState(t *testing.T) {
 	// Given
 	newFsValue := "updated_value"
@@ -447,6 +509,72 @@ func TestGetFeature(t *testing.T) {
 	assert.Equal(t, ProjectID, *feature.ProjectID)
 	assert.Equal(t, ProjectUUID, feature.ProjectUUID)
 
+}
+func TestGetFeatureStateNotFound(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/features/featurestates/get-by-uuid/%s/", FeatureStateUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(rw, `{"error": "not found"}`)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	fs, err := client.GetFeatureState(FeatureStateUUID)
+
+	// Then
+	assert.Nil(t, fs)
+	assert.Error(t, err)
+	assert.IsType(t, flagsmithapi.FeatureStateNotFoundError{}, err)
+}
+
+func TestGetFeatureNotFound(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// if req.Header.Get("If-None-Match") != "" {
+		//     rw.WriteHeader(http.StatusNotModified)
+		//     return
+		// }
+
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(rw, `{"error": "not found"}`)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	feature, err := client.GetFeature(FeatureUUID)
+
+	// Then
+	assert.Nil(t, feature)
+	assert.Error(t, err)
+	assert.IsType(t, flagsmithapi.FeatureNotFoundError{}, err)
 }
 
 func TestAddFeatureOwners(t *testing.T) {
@@ -916,6 +1044,40 @@ func TestGetSegment(t *testing.T) {
 	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Property)
 	assert.Equal(t, "1", segment.Rules[0].Rules[0].Conditions[0].Value)
 
+}
+func TestGetSegmentNotFound(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/segments/get-by-uuid/%s/", SegmentUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+
+		rw.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(rw, `{"error": "not found"}`)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	segment, err := client.GetSegment(SegmentUUID)
+
+	// Then
+	assert.Nil(t, segment)
+	assert.Error(t, err)
+	assert.IsType(t, flagsmithapi.SegmentNotFoundError{}, err)
 }
 
 func TestDeleteSegment(t *testing.T) {

@@ -2,7 +2,7 @@ package flagsmithapi
 
 import (
 	"fmt"
-
+	"net/http"
 	"strconv"
 
 	"github.com/go-resty/resty/v2"
@@ -65,6 +65,9 @@ func (c *Client) GetFeatureState(featureStateUUID string) (*FeatureState, error)
 	}
 
 	if !resp.IsSuccess() {
+		if resp.StatusCode() == http.StatusNotFound {
+			return nil, FeatureStateNotFoundError{featureStateUUID: featureStateUUID}
+		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting feature state: %s", resp)
 	}
 	if featureState.FeatureSegment != nil {
@@ -151,6 +154,9 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	}
 
 	if !resp.IsSuccess() {
+		if resp.StatusCode() == http.StatusNotFound {
+			return nil, FeatureNotFoundError{featureUUID: featureUUID}
+		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting feature: %s", resp)
 	}
 	project, err := c.GetProjectByID(*feature.ProjectID)
@@ -358,6 +364,9 @@ func (c *Client) GetSegment(segmentUUID string) (*Segment, error) {
 	}
 
 	if !resp.IsSuccess() {
+		if resp.StatusCode() == http.StatusNotFound {
+			return nil, SegmentNotFoundError{segmentUUID: segmentUUID}
+		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting segment: %s", resp)
 	}
 	project, err := c.GetProjectByID(*segment.ProjectID)
