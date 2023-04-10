@@ -546,20 +546,9 @@ func TestGetFeatureNotFound(t *testing.T) {
 		assert.Equal(t, "GET", req.Method)
 		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
 
-		// if req.Header.Get("If-None-Match") != "" {
-		//     rw.WriteHeader(http.StatusNotModified)
-		//     return
-		// }
-
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusNotFound)
 		_, err := io.WriteString(rw, `{"error": "not found"}`)
-		assert.NoError(t, err)
-	})
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetProjectResponseJson)
 		assert.NoError(t, err)
 	})
 
@@ -749,19 +738,6 @@ func TestGetFeatureMVOptionNotFound(t *testing.T) {
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusNotFound)
 		_, err := io.WriteString(rw, `{"error": "not found"}`)
-		assert.NoError(t, err)
-
-	})
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetProjectResponseJson)
-		assert.NoError(t, err)
-	})
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, CreateFeatureResponseJson)
 		assert.NoError(t, err)
 
 	})
@@ -1099,12 +1075,6 @@ func TestGetSegmentNotFound(t *testing.T) {
 
 		rw.WriteHeader(http.StatusNotFound)
 		_, err := io.WriteString(rw, `{"error": "not found"}`)
-		assert.NoError(t, err)
-	})
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetProjectResponseJson)
 		assert.NoError(t, err)
 	})
 
