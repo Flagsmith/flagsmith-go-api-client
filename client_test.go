@@ -738,6 +738,48 @@ func TestGetFeatureMVOption(t *testing.T) {
 
 }
 
+func TestGetFeatureMVOptionNotFound(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/multivariate/options/get-by-uuid/%s/", MVFeatureOptionUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(rw, `{"error": "not found"}`)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	featureMVOption, err := client.GetFeatureMVOption(FeatureUUID, MVFeatureOptionUUID)
+
+	// Then
+	assert.Nil(t, featureMVOption)
+	assert.Error(t, err)
+	assert.IsType(t, flagsmithapi.FeatureMVOptionNotFoundError{}, err)
+}
+
 func TestDeleteFeatureMVOption(t *testing.T) {
 	// Given
 	requestReceived := struct {

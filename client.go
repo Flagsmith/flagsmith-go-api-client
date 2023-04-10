@@ -284,6 +284,9 @@ func (c *Client) GetFeatureMVOption(featureUUID, mvOptionUUID string) (*FeatureM
 	}
 
 	if !resp.IsSuccess() {
+		if resp.StatusCode() == http.StatusNotFound {
+			return nil, FeatureMVOptionNotFoundError{featureMVOptionUUID: mvOptionUUID}
+		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting feature MV option: %s", resp)
 	}
 	feature, err := c.GetFeature(featureUUID)
