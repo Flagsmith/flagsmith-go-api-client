@@ -209,3 +209,14 @@ type Environment struct {
 	Description string `json:"description"`
 	Project     int64  `json:"project"`
 }
+
+type Tag struct {
+	ID          *int64  `json:"id,omitempty"`
+	UUID        string  `json:"uuid,omitempty"`
+	Name        string  `json:"label"`
+	Description *string `json:"description"`
+	Colour      string  `json:"color"`
+
+	ProjectUUID string `json:"-"`
+	ProjectID   *int64 `json:"project,omitempty"`
+}
