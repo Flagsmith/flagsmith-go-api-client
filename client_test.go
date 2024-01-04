@@ -276,7 +276,7 @@ const CreateFeatureResponseJson = `
     "initial_value": null,
     "created_date": "2022-08-24T03:34:55.862503Z",
     "description": null,
-    "tags": [],
+    "tags": [1],
     "multivariate_options": [],
     "is_archived": false,
     "owners": [
@@ -299,9 +299,10 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 	newFeature := flagsmithapi.Feature{
 		Name:        FeatureName,
 		ProjectUUID: ProjectUUID,
+		Tags:        []int64{},
 	}
 	mux := http.NewServeMux()
-	expectedRequestBody := fmt.Sprintf(`{"name":"%s","project":%d}`, FeatureName, ProjectID)
+	expectedRequestBody := fmt.Sprintf(`{"name":"%s","tags":[],"project":%d}`, FeatureName, ProjectID)
 
 	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/features/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, "POST", req.Method)
@@ -421,9 +422,10 @@ func TestUpdateFeature(t *testing.T) {
 		ProjectUUID: ProjectUUID,
 		ProjectID:   &projectID,
 		Description: &description,
+		Tags:        []int64{TagID},
 	}
 
-	expectedRequestBody := fmt.Sprintf(`{"name":"%s","id":%d,"description":"feature description","project":%d}`, FeatureName, featureID, ProjectID)
+	expectedRequestBody := fmt.Sprintf(`{"name":"%s","id":%d,"description":"feature description","tags":[%d],"project":%d}`, FeatureName, featureID, TagID, ProjectID)
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/", ProjectID, FeatureID), req.URL.Path)
@@ -504,6 +506,9 @@ func TestGetFeature(t *testing.T) {
 
 	expectedOwners := []int64{1, 2}
 	assert.Equal(t, &expectedOwners, feature.Owners)
+
+	expectedTags := []int64{1}
+	assert.Equal(t, expectedTags, feature.Tags)
 
 	assert.Equal(t, "", feature.InitialValue)
 

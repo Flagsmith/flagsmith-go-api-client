@@ -36,6 +36,7 @@ type Feature struct {
 	DefaultEnabled bool     `json:"default_enabled,omitempty"`
 	IsArchived     bool     `json:"is_archived,omitempty"`
 	Owners         *[]int64 `json:"owners,omitempty"`
+	Tags           []int64  `json:"tags"`
 
 	ProjectUUID string `json:"-"`
 	ProjectID   *int64 `json:"project,omitempty"`
@@ -56,6 +57,7 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 		IsArchived     bool    `json:"is_archived,omitempty"`
 		Owners         []owner `json:"owners,omitempty"`
 		ProjectID      *int64  `json:"project,omitempty"`
+		Tags           []int64 `json:"tags"`
 	}
 
 	err := json.Unmarshal(data, &obj)
@@ -73,6 +75,7 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 	f.DefaultEnabled = obj.DefaultEnabled
 	f.IsArchived = obj.IsArchived
 	f.ProjectID = obj.ProjectID
+	f.Tags = obj.Tags
 	if obj.Owners != nil {
 		f.Owners = &[]int64{}
 		for _, o := range obj.Owners {
