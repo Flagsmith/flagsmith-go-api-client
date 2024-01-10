@@ -231,10 +231,6 @@ func (c *Client) getProjectID(projectUUID string) (int64, error) {
 }
 
 func (c *Client) manageFeatureOwners(feature *Feature, ownerIDs []int64, endpoint string) (*resty.Response, error) {
-	// projectID, err := c.getProjectID(feature)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, *feature.ProjectID, *feature.ID, endpoint)
 	body := struct {
 		UserIDs []int64 `json:"user_ids"`
