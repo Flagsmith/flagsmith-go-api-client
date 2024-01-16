@@ -168,11 +168,15 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 }
 
 func (c *Client) CreateFeature(feature *Feature) error {
-	projectID, err := c.getProjectID(feature)
-	if err != nil {
-		return err
+	if feature.ProjectID == nil {
+		projectID, err := c.getProjectID(feature.ProjectUUID)
+		if err != nil {
+			return err
+		}
+		feature.ProjectID = &projectID
 	}
-	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, projectID)
+
+	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, *feature.ProjectID)
 
 	resp, err := c.client.R().SetBody(feature).SetResult(&feature).Post(url)
 
@@ -203,11 +207,7 @@ func (c *Client) DeleteFeature(projectID, featureID int64) error {
 }
 
 func (c *Client) UpdateFeature(feature *Feature) error {
-	projectID, err := c.getProjectID(feature)
-	if err != nil {
-		return err
-	}
-	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, *feature.ID)
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, *feature.ProjectID, *feature.ID)
 	resp, err := c.client.R().SetBody(feature).SetResult(feature).Put(url)
 
 	if err != nil {
@@ -221,11 +221,8 @@ func (c *Client) UpdateFeature(feature *Feature) error {
 	return nil
 }
 
-func (c *Client) getProjectID(feature *Feature) (int64, error) {
-	if feature.ProjectID != nil {
-		return *feature.ProjectID, nil
-	}
-	project, err := c.GetProject(feature.ProjectUUID)
+func (c *Client) getProjectID(projectUUID string) (int64, error) {
+	project, err := c.GetProject(projectUUID)
 
 	if err != nil {
 		return 0, err
@@ -234,11 +231,7 @@ func (c *Client) getProjectID(feature *Feature) (int64, error) {
 }
 
 func (c *Client) manageFeatureOwners(feature *Feature, ownerIDs []int64, endpoint string) (*resty.Response, error) {
-	projectID, err := c.getProjectID(feature)
-	if err != nil {
-		return nil, err
-	}
-	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, projectID, *feature.ID, endpoint)
+	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, *feature.ProjectID, *feature.ID, endpoint)
 	body := struct {
 		UserIDs []int64 `json:"user_ids"`
 	}{
@@ -563,4 +556,76 @@ func (c *Client) CreateSegmentOverride(featureState *FeatureState) error {
 
 	return nil
 
+}
+
+func (c *Client) GetTag(projectUUID string, tagUUID string) (*Tag, error) {
+	projectID, err := c.getProjectID(projectUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/projects/%d/tags/get-by-uuid/%s/", c.baseURL, projectID, tagUUID)
+	tag := Tag{}
+	resp, err := c.client.R().
+		SetResult(&tag).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting tag: %s", resp)
+	}
+	tag.ProjectUUID = projectUUID
+	return &tag, nil
+}
+func (c *Client) CreateTag(tag *Tag) error {
+	if tag.ProjectID == nil {
+		projectID, err := c.getProjectID(tag.ProjectUUID)
+		if err != nil {
+			return err
+		}
+		tag.ProjectID = &projectID
+	}
+	url := fmt.Sprintf("%s/projects/%d/tags/", c.baseURL, *tag.ProjectID)
+	resp, err := c.client.R().SetBody(tag).SetResult(tag).Post(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error creating tag: %s", resp)
+	}
+
+	return nil
+}
+
+func (c *Client) UpdateTag(tag *Tag) error {
+	url := fmt.Sprintf("%s/projects/%d/tags/%d/", c.baseURL, *tag.ProjectID, *tag.ID)
+	resp, err := c.client.R().SetBody(tag).SetResult(tag).Put(url)
+
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error updating tag: %s", resp)
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteTag(projectID, tagID int64) error {
+	url := fmt.Sprintf("%s/projects/%d/tags/%d/", c.baseURL, projectID, tagID)
+
+	resp, err := c.client.R().Delete(url)
+	if err != nil {
+		return err
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error deleting tag: %s", resp)
+	}
+	return nil
 }

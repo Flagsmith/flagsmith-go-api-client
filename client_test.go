@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -274,7 +276,7 @@ const CreateFeatureResponseJson = `
     "initial_value": null,
     "created_date": "2022-08-24T03:34:55.862503Z",
     "description": null,
-    "tags": [],
+    "tags": [1],
     "multivariate_options": [],
     "is_archived": false,
     "owners": [
@@ -297,9 +299,10 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 	newFeature := flagsmithapi.Feature{
 		Name:        FeatureName,
 		ProjectUUID: ProjectUUID,
+		Tags:        []int64{},
 	}
 	mux := http.NewServeMux()
-	expectedRequestBody := `{"name":"test_feature"}`
+	expectedRequestBody := fmt.Sprintf(`{"name":"%s","tags":[],"project":%d}`, FeatureName, ProjectID)
 
 	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/features/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, "POST", req.Method)
@@ -328,7 +331,6 @@ func TestCreateFeatureFetchesProjectIfProjectIDIsNil(t *testing.T) {
 	err := client.CreateFeature(&newFeature)
 
 	// Then
-
 	assert.NoError(t, err)
 	assert.Equal(t, FeatureID, *newFeature.ID)
 	assert.Equal(t, FeatureName, newFeature.Name)
@@ -420,9 +422,10 @@ func TestUpdateFeature(t *testing.T) {
 		ProjectUUID: ProjectUUID,
 		ProjectID:   &projectID,
 		Description: &description,
+		Tags:        []int64{TagID},
 	}
 
-	expectedRequestBody := fmt.Sprintf(`{"name":"%s","id":%d,"description":"feature description","project":%d}`, FeatureName, featureID, ProjectID)
+	expectedRequestBody := fmt.Sprintf(`{"name":"%s","id":%d,"description":"feature description","tags":[%d],"project":%d}`, FeatureName, featureID, TagID, ProjectID)
 
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/", ProjectID, FeatureID), req.URL.Path)
@@ -503,6 +506,9 @@ func TestGetFeature(t *testing.T) {
 
 	expectedOwners := []int64{1, 2}
 	assert.Equal(t, &expectedOwners, feature.Owners)
+
+	expectedTags := []int64{1}
+	assert.Equal(t, expectedTags, feature.Tags)
 
 	assert.Equal(t, "", feature.InitialValue)
 
@@ -1657,4 +1663,198 @@ func TestUpdateFeatureStateUpdatesPriority(t *testing.T) {
 	assert.Equal(t, EnvironmentID, *fs.Environment)
 	assert.Equal(t, true, fs.Enabled)
 
+}
+
+const TagUUID = "32660ad7-3c1f-41c6-abef-bf2ea7f18ba4"
+const TagID int64 = 1
+const TagName = "Test Tag"
+const TagColour = "#FF0000"
+const TagJson = `{
+    "id": 1,
+    "label": "Test Tag",
+    "color": "#FF0000",
+    "description": "Description",
+    "project": 10,
+    "uuid": "32660ad7-3c1f-41c6-abef-bf2ea7f18ba4"
+}
+`
+
+func TestGetTag(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/tags/get-by-uuid/%s/", ProjectID, TagUUID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, TagJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/get-by-uuid/%s/", ProjectUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	tag, err := client.GetTag(ProjectUUID, TagUUID)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	assert.Equal(t, TagID, *tag.ID)
+	assert.Equal(t, TagName, tag.Name)
+	assert.Equal(t, TagColour, tag.Colour)
+	assert.Equal(t, "Description", *tag.Description)
+
+	assert.Equal(t, ProjectID, *tag.ProjectID)
+	assert.Equal(t, ProjectUUID, tag.ProjectUUID)
+
+}
+
+func TestCreateTag(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/tags/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+
+		var tag flagsmithapi.Tag
+		err = json.Unmarshal(rawBody, &tag)
+		assert.NoError(t, err)
+
+		assert.Equal(t, TagName, tag.Name)
+		assert.Equal(t, TagColour, tag.Colour)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, TagJson)
+		assert.NoError(t, err)
+
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/get-by-uuid/%s/", ProjectUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+	new_tag := flagsmithapi.Tag{
+		Name:        TagName,
+		Colour:      TagColour,
+		ProjectUUID: ProjectUUID,
+	}
+
+	// When
+	err := client.CreateTag(&new_tag)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	assert.Equal(t, TagID, *new_tag.ID)
+	assert.Equal(t, TagName, new_tag.Name)
+	assert.Equal(t, TagColour, new_tag.Colour)
+
+	assert.Equal(t, ProjectID, *new_tag.ProjectID)
+	assert.Equal(t, ProjectUUID, new_tag.ProjectUUID)
+
+}
+
+func TestUpdateTag(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+	projectID := ProjectID
+	tagID := TagID
+
+	updatedDescription := "Updated Description"
+	newTag := flagsmithapi.Tag{
+		ID:          &tagID,
+		Name:        TagName,
+		Colour:      TagColour,
+		ProjectUUID: ProjectUUID,
+		ProjectID:   &projectID,
+		Description: &updatedDescription,
+	}
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/tags/%d/", ProjectID, TagID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "PUT", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+
+		var tag flagsmithapi.Tag
+		err = json.Unmarshal(rawBody, &tag)
+		assert.NoError(t, err)
+
+		assert.Equal(t, TagName, tag.Name)
+		assert.Equal(t, TagColour, tag.Colour)
+		assert.Equal(t, updatedDescription, *tag.Description)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, TagJson)
+		assert.NoError(t, err)
+
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateTag(&newTag)
+
+	// Then
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	assert.Equal(t, TagID, *newTag.ID)
+	assert.Equal(t, TagName, newTag.Name)
+	assert.Equal(t, TagColour, newTag.Colour)
+	assert.Equal(t, updatedDescription, *newTag.Description)
+
+	assert.Equal(t, ProjectID, *newTag.ProjectID)
+	assert.Equal(t, ProjectUUID, newTag.ProjectUUID)
+
+}
+
+func TestDeleteTag(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+	projectID := ProjectID
+	tagID := TagID
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/tags/%d/", ProjectID, TagID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "DELETE", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.WriteHeader(http.StatusNoContent)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.DeleteTag(projectID, tagID)
+
+	// Then
+	assert.NoError(t, err)
 }
