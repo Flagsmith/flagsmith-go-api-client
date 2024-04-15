@@ -3,6 +3,7 @@ package flagsmithapi
 import (
 	"encoding/json"
 	"log"
+	"time"
 )
 
 type Project struct {
@@ -222,4 +223,17 @@ type Tag struct {
 
 	ProjectUUID string `json:"-"`
 	ProjectID   *int64 `json:"project,omitempty"`
+}
+
+type Identity struct {
+	ID         *int64 `json:"id,omitempty"`
+	Identifier string `json:"identifier"`
+}
+
+type ServerSideEnvKey struct {
+	ID        *int64    `json:"id,omitempty"`
+	Active    bool      `json:"active,omitempty"`
+	Name      string    `json:"name,omitempty"`
+	Key       string    `json:"key,omitempty"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
 }
