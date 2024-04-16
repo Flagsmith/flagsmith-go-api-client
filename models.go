@@ -235,9 +235,10 @@ type Identity struct {
 }
 
 type ServerSideEnvKey struct {
-	ID        *int64    `json:"id,omitempty"`
-	Active    bool      `json:"active,omitempty"`
-	Name      string    `json:"name,omitempty"`
-	Key       string    `json:"key,omitempty"`
-	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	ID        int64      `json:"id,omitempty"`
+	Active    bool       `json:"active"`
+	Name      string     `json:"name,omitempty"`
+	Key       string     `json:"key,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
 }
