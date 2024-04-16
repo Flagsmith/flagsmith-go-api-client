@@ -239,32 +239,8 @@ const GetProjectResponseJson = `
 `
 const ProjectID int64 = 10
 const ProjectUUID = "cba035f8-d801-416f-a985-ce6e05acbe13"
-
-func TestGetProject(t *testing.T) {
-	// Given
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, fmt.Sprintf("/api/v1/projects/get-by-uuid/%s/", ProjectUUID), req.URL.Path)
-		assert.Equal(t, "GET", req.Method)
-		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
-
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetProjectResponseJson)
-		assert.NoError(t, err)
-	}))
-	defer server.Close()
-
-	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
-
-	// When
-	project, err := client.GetProject(ProjectUUID)
-
-	// Then
-	assert.NoError(t, err)
-
-	assert.Equal(t, ProjectID, project.ID)
-	assert.Equal(t, ProjectUUID, project.UUID)
-	assert.Equal(t, "project-1", project.Name)
-}
+const ProjectName = "project-1"
+const OrganisationID = 10
 
 const CreateFeatureResponseJson = `
 {

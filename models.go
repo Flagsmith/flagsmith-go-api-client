@@ -7,10 +7,14 @@ import (
 )
 
 type Project struct {
-	ID           int64  `json:"id"`
-	UUID         string `json:"uuid"`
-	Name         string `json:"name"`
-	Organisation int64  `json:"organisation"`
+	ID                             int64  `json:"id,omitempty"`
+	UUID                           string `json:"uuid,omitempty"`
+	Name                           string `json:"name"`
+	Organisation                   int64  `json:"organisation"`
+	HideDisabledFlags              bool   `json:"hide_disabled_flags,omitempty"`
+	PreventFlagDefaults            bool   `json:"prevent_flag_defaults,omitempty"`
+	OnlyAllowLowerCaseFeatureNames bool   `json:"only_allow_lower_case_feature_names,omitempty"`
+	FeatureNameRegex               bool   `json:"feature_name_regex,omitempty"`
 }
 
 type FeatureMultivariateOption struct {
