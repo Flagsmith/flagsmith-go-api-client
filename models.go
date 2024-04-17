@@ -211,11 +211,17 @@ type FeatureSegment struct {
 }
 
 type Environment struct {
-	ID          int64  `json:"id,omitempty"`
-	Name        string `json:"name"`
-	APIKey      string `json:"api_key"`
-	Description string `json:"description"`
-	Project     int64  `json:"project"`
+	ID                                int64  `json:"id,omitempty"`
+	Name                              string `json:"name"`
+	APIKey                            string `json:"api_key,omitempty"`
+	Description                       string `json:"description"`
+	Project                           int64  `json:"project"`
+	AllowClientTraits                 bool   `json:"allow_client_traits,omitempty"`
+	BannerText                        string `json:"banner_text,omitempty"`
+	BannerColour                      string `json:"banner_colour,omitempty"`
+	HideDisabledFlags                 bool   `json:"hide_disabled_flags,omitempty"`
+	HideSensitiveData                 bool   `json:"hide_sensitive_data,omitempty"`
+	UseIdentityCompositeKeyForHashing bool   `json:"use_identity_composite_key_for_hashing,omitempty"`
 }
 
 type Tag struct {
