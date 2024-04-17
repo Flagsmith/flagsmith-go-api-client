@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func (c *Client) GetServerSideEnvKeys(environmentKey string) (*[]ServerSideEnvKey, error) {
+func (c *Client) GetServerSideEnvKeys(environmentKey string) ([]ServerSideEnvKey, error) {
 	url := fmt.Sprintf("%s/environments/%s/api-keys/", c.baseURL, environmentKey)
 	keys := []ServerSideEnvKey{}
 	resp, err := c.client.R().SetResult(&keys).Get(url)
@@ -13,9 +13,9 @@ func (c *Client) GetServerSideEnvKeys(environmentKey string) (*[]ServerSideEnvKe
 	}
 
 	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error deleting identity: %v", resp)
+		return nil, fmt.Errorf("flagsmithapi: Error fetching server side keys: %v", resp)
 	}
-	return &keys, nil
+	return keys, nil
 }
 func (c *Client) CreateServerSideEnvKey(environmentKey string, key *ServerSideEnvKey) error {
 	url := fmt.Sprintf("%s/environments/%s/api-keys/", c.baseURL, environmentKey)

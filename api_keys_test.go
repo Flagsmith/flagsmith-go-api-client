@@ -72,23 +72,23 @@ func TestGetServerSideEnvKeys(t *testing.T) {
 
 	// Then
 	assert.NoError(t, err)
-	assert.Len(t, *keys, 2)
-	// Check the first key
+	assert.Len(t, keys, 2)
 
-	assert.Equal(t, KeyOneID, (*keys)[0].ID)
-	assert.Equal(t, KeyOneName, (*keys)[0].Name)
-	assert.Equal(t, KeyOneKey, (*keys)[0].Key)
-	assert.True(t, (*keys)[0].Active)
-	assert.Equal(t, "2022-02-16T12:09:30.349955Z", (*keys)[0].CreatedAt.Format(time.RFC3339Nano))
-	assert.Nil(t, (*keys)[0].ExpiresAt)
+	// Check the first key
+	assert.Equal(t, KeyOneID, (keys)[0].ID)
+	assert.Equal(t, KeyOneName, (keys)[0].Name)
+	assert.Equal(t, KeyOneKey, (keys)[0].Key)
+	assert.True(t, (keys)[0].Active)
+	assert.Equal(t, "2022-02-16T12:09:30.349955Z", (keys)[0].CreatedAt.Format(time.RFC3339Nano))
+	assert.Nil(t, (keys)[0].ExpiresAt)
 
 	// Check the second key
-	assert.Equal(t, KeyTwoID, (*keys)[1].ID)
-	assert.Equal(t, KeyTwoName, (*keys)[1].Name)
-	assert.Equal(t, KeyTwoKey, (*keys)[1].Key)
-	assert.True(t, (*keys)[1].Active)
-	assert.Equal(t, "2022-02-16T12:09:21.300028Z", (*keys)[1].CreatedAt.Format(time.RFC3339Nano))
-	assert.Nil(t, (*keys)[1].ExpiresAt)
+	assert.Equal(t, KeyTwoID, (keys)[1].ID)
+	assert.Equal(t, KeyTwoName, (keys)[1].Name)
+	assert.Equal(t, KeyTwoKey, (keys)[1].Key)
+	assert.True(t, (keys)[1].Active)
+	assert.Equal(t, "2022-02-16T12:09:21.300028Z", (keys)[1].CreatedAt.Format(time.RFC3339Nano))
+	assert.Nil(t, (keys)[1].ExpiresAt)
 
 }
 
