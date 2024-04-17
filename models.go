@@ -248,3 +248,12 @@ type ServerSideEnvKey struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 }
+type Trait struct {
+	ID           int64    `json:"id,omitempty"`
+	TraitKey     string   `json:"trait_key"`
+	ValueType    string   `json:"value_type"`
+	IntegerValue *int     `json:"integer_value,omitempty"`
+	StringValue  *string  `json:"string_value,omitempty"`
+	BooleanValue *bool    `json:"boolean_value,omitempty"`
+	FloatValue   *float64 `json:"float_value,omitempty"`
+}
