@@ -3,13 +3,18 @@ package flagsmithapi
 import (
 	"encoding/json"
 	"log"
+	"time"
 )
 
 type Project struct {
-	ID           int64  `json:"id"`
-	UUID         string `json:"uuid"`
-	Name         string `json:"name"`
-	Organisation int64  `json:"organisation"`
+	ID                             int64  `json:"id,omitempty"`
+	UUID                           string `json:"uuid,omitempty"`
+	Name                           string `json:"name"`
+	Organisation                   int64  `json:"organisation"`
+	HideDisabledFlags              bool   `json:"hide_disabled_flags,omitempty"`
+	PreventFlagDefaults            bool   `json:"prevent_flag_defaults,omitempty"`
+	OnlyAllowLowerCaseFeatureNames bool   `json:"only_allow_lower_case_feature_names,omitempty"`
+	FeatureNameRegex               bool   `json:"feature_name_regex,omitempty"`
 }
 
 type FeatureMultivariateOption struct {
@@ -206,11 +211,17 @@ type FeatureSegment struct {
 }
 
 type Environment struct {
-	ID          int64  `json:"id,omitempty"`
-	Name        string `json:"name"`
-	APIKey      string `json:"api_key"`
-	Description string `json:"description"`
-	Project     int64  `json:"project"`
+	ID                                int64  `json:"id,omitempty"`
+	Name                              string `json:"name"`
+	APIKey                            string `json:"api_key,omitempty"`
+	Description                       string `json:"description"`
+	Project                           int64  `json:"project"`
+	AllowClientTraits                 bool   `json:"allow_client_traits,omitempty"`
+	BannerText                        string `json:"banner_text,omitempty"`
+	BannerColour                      string `json:"banner_colour,omitempty"`
+	HideDisabledFlags                 bool   `json:"hide_disabled_flags,omitempty"`
+	HideSensitiveData                 bool   `json:"hide_sensitive_data,omitempty"`
+	UseIdentityCompositeKeyForHashing bool   `json:"use_identity_composite_key_for_hashing,omitempty"`
 }
 
 type Tag struct {
@@ -222,4 +233,27 @@ type Tag struct {
 
 	ProjectUUID string `json:"-"`
 	ProjectID   *int64 `json:"project,omitempty"`
+}
+
+type Identity struct {
+	ID         *int64 `json:"id,omitempty"`
+	Identifier string `json:"identifier"`
+}
+
+type ServerSideEnvKey struct {
+	ID        int64      `json:"id,omitempty"`
+	Active    bool       `json:"active"`
+	Name      string     `json:"name,omitempty"`
+	Key       string     `json:"key,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+}
+type Trait struct {
+	ID           int64    `json:"id,omitempty"`
+	TraitKey     string   `json:"trait_key"`
+	ValueType    string   `json:"value_type"`
+	IntegerValue *int     `json:"integer_value,omitempty"`
+	StringValue  *string  `json:"string_value,omitempty"`
+	BooleanValue *bool    `json:"boolean_value,omitempty"`
+	FloatValue   *float64 `json:"float_value,omitempty"`
 }

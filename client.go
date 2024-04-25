@@ -111,38 +111,6 @@ func (c *Client) UpdateFeatureState(featureState *FeatureState, updateSegmentPri
 	return nil
 }
 
-func (c *Client) GetProject(projectUUID string) (*Project, error) {
-	url := fmt.Sprintf("%s/projects/get-by-uuid/%s/", c.baseURL, projectUUID)
-	project := Project{}
-	resp, err := c.client.R().
-		SetResult(&project).
-		Get(url)
-
-	if err != nil {
-		return nil, err
-	}
-	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error getting project: %s", resp)
-	}
-	return &project, nil
-
-}
-func (c *Client) GetProjectByID(projectID int64) (*Project, error) {
-	url := fmt.Sprintf("%s/projects/%d/", c.baseURL, projectID)
-	project := Project{}
-	resp, err := c.client.R().
-		SetResult(&project).
-		Get(url)
-
-	if err != nil {
-		return nil, err
-	}
-	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error getting project: %s", resp)
-	}
-	return &project, nil
-
-}
 func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	url := fmt.Sprintf("%s/features/get-by-uuid/%s/", c.baseURL, featureUUID)
 	feature := Feature{}
@@ -432,23 +400,6 @@ func (c *Client) UpdateSegment(segment *Segment) error {
 	}
 
 	return nil
-}
-
-func (c *Client) GetEnvironment(apiKey string) (*Environment, error) {
-	url := fmt.Sprintf("%s/environments/%s/", c.baseURL, apiKey)
-	environment := Environment{}
-	resp, err := c.client.R().
-		SetResult(&environment).Get(url)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("flagsmithapi: Error getting environment: %s", resp)
-	}
-
-	return &environment, nil
 }
 
 func (c *Client) GetFeatureSegmentByID(featureSegmentID int64) (*FeatureSegment, error) {

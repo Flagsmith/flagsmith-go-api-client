@@ -239,32 +239,8 @@ const GetProjectResponseJson = `
 `
 const ProjectID int64 = 10
 const ProjectUUID = "cba035f8-d801-416f-a985-ce6e05acbe13"
-
-func TestGetProject(t *testing.T) {
-	// Given
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, fmt.Sprintf("/api/v1/projects/get-by-uuid/%s/", ProjectUUID), req.URL.Path)
-		assert.Equal(t, "GET", req.Method)
-		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
-
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetProjectResponseJson)
-		assert.NoError(t, err)
-	}))
-	defer server.Close()
-
-	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
-
-	// When
-	project, err := client.GetProject(ProjectUUID)
-
-	// Then
-	assert.NoError(t, err)
-
-	assert.Equal(t, ProjectID, project.ID)
-	assert.Equal(t, ProjectUUID, project.UUID)
-	assert.Equal(t, "project-1", project.Name)
-}
+const ProjectName = "project-1"
+const OrganisationID = 10
 
 const CreateFeatureResponseJson = `
 {
@@ -1307,37 +1283,13 @@ const EnvironmentJson = `{
 	"description": null,
 	"project": 10,
 	"minimum_change_request_approvals": 0,
-	"allow_client_traits": true
+	"allow_client_traits": true,
+	"banner_colour": null,
+	"banner_text": null,
+	"hide_disabled_flags": null,
+	"hide_sensitive_data": false,
+	"use_identity_composite_key_for_hashing": true
 }`
-
-func TestGetEnvironment(t *testing.T) {
-	// Given
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, fmt.Sprintf("/api/v1/environments/%s/", EnvironmentAPIKey), req.URL.Path)
-		assert.Equal(t, "GET", req.Method)
-		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
-
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, EnvironmentJson)
-		assert.NoError(t, err)
-	}))
-	defer server.Close()
-
-	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
-
-	// When
-	environment, err := client.GetEnvironment(EnvironmentAPIKey)
-
-	// Then
-	// assert that we did not receive an error
-	assert.NoError(t, err)
-
-	// assert that the environment is as expected
-	assert.Equal(t, EnvironmentID, environment.ID)
-	assert.Equal(t, "Development", environment.Name)
-	assert.Equal(t, EnvironmentAPIKey, environment.APIKey)
-	assert.Equal(t, ProjectID, environment.Project)
-}
 
 // 400 is arbitrarily chosen to avoid collision with other ids
 const FeatureSegmentID = int64(400)
