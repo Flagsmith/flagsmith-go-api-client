@@ -20,6 +20,22 @@ func (c *Client) GetEnvironment(apiKey string) (*Environment, error) {
 
 	return &environment, nil
 }
+func (c *Client) GetEnvironmentByUUID(uuid string) (*Environment, error) {
+	url := fmt.Sprintf("%s/environments/get-by-uuid/%s/", c.baseURL, uuid)
+	environment := Environment{}
+	resp, err := c.client.R().
+		SetResult(&environment).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting environment: %s", resp)
+	}
+
+	return &environment, nil
+}
 func (c *Client) CreateEnvironment(environment *Environment) error {
 	url := fmt.Sprintf("%s/environments/", c.baseURL)
 	resp, err := c.client.R().SetBody(environment).SetResult(environment).Post(url)

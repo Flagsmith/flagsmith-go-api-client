@@ -41,7 +41,7 @@ func TestGetProject(t *testing.T) {
 
 }
 
-func TestCreateProject(t *testing.T) {
+func TestCreateProjectByUUID(t *testing.T) {
 	// Given
 	project := flagsmithapi.Project{
 		Name:         ProjectName,

@@ -14,7 +14,9 @@ type Project struct {
 	HideDisabledFlags              bool   `json:"hide_disabled_flags,omitempty"`
 	PreventFlagDefaults            bool   `json:"prevent_flag_defaults,omitempty"`
 	OnlyAllowLowerCaseFeatureNames bool   `json:"only_allow_lower_case_feature_names,omitempty"`
-	FeatureNameRegex               bool   `json:"feature_name_regex,omitempty"`
+	FeatureNameRegex               string `json:"feature_name_regex,omitempty"`
+	StaleFlagsLimitDays            int64  `json:"stale_flags_limit_days,omitempty"`
+	EnableRealtimeUpdates          bool   `json:"enable_realtime_updates,omitempty"`
 }
 
 type FeatureMultivariateOption struct {
@@ -212,16 +214,18 @@ type FeatureSegment struct {
 
 type Environment struct {
 	ID                                int64  `json:"id,omitempty"`
+	UUID                              string `json:"uuid,omitempty"`
 	Name                              string `json:"name"`
 	APIKey                            string `json:"api_key,omitempty"`
 	Description                       string `json:"description"`
-	Project                           int64  `json:"project"`
+	ProjectID                         int64  `json:"project"`
 	AllowClientTraits                 bool   `json:"allow_client_traits,omitempty"`
 	BannerText                        string `json:"banner_text,omitempty"`
 	BannerColour                      string `json:"banner_colour,omitempty"`
 	HideDisabledFlags                 bool   `json:"hide_disabled_flags,omitempty"`
 	HideSensitiveData                 bool   `json:"hide_sensitive_data,omitempty"`
 	UseIdentityCompositeKeyForHashing bool   `json:"use_identity_composite_key_for_hashing,omitempty"`
+	MinimumChangeRequestApprovals     int64  `json:"minimum_change_request_approvals,omitempty"`
 }
 
 type Tag struct {
@@ -256,4 +260,13 @@ type Trait struct {
 	StringValue  *string  `json:"string_value,omitempty"`
 	BooleanValue *bool    `json:"boolean_value,omitempty"`
 	FloatValue   *float64 `json:"float_value,omitempty"`
+}
+
+type Organisation struct {
+	ID                           int64  `json:"id,omitempty"`
+	UUID                         string `json:"uuid,omitempty"`
+	Name                         string `json:"name"`
+	Force2FA                     bool   `json:"force_2fa"`
+	RestrictProjectCreateToAdmin bool   `json:"restrict_project_create_to_admin"`
+	PersistTraitData             bool   `json:"persist_trait_data"`
 }
