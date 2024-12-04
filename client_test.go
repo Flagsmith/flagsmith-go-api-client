@@ -240,7 +240,7 @@ const GetProjectResponseJson = `
 const ProjectID int64 = 10
 const ProjectUUID = "cba035f8-d801-416f-a985-ce6e05acbe13"
 const ProjectName = "project-1"
-const OrganisationID = 10
+const OrganisationID int64 = 10
 
 const CreateFeatureResponseJson = `
 {
@@ -1278,6 +1278,7 @@ const EnvironmentID int64 = 100
 const EnvironmentAPIKey = "environment_api_key"
 const EnvironmentJson = `{
 	"id": 100,
+	"uuid": "4c830509-116d-46b7-804e-98f74d3b000b",
 	"name": "Development",
 	"api_key": "environment_api_key",
 	"description": null,

@@ -15,6 +15,7 @@ import (
 )
 
 const EnvironmentName = "Development"
+const EnvironmentUUID = "4c830509-116d-46b7-804e-98f74d3b000b"
 
 func TestGetEnvironment(t *testing.T) {
 	// Given
@@ -42,7 +43,35 @@ func TestGetEnvironment(t *testing.T) {
 	assert.Equal(t, EnvironmentID, environment.ID)
 	assert.Equal(t, "Development", environment.Name)
 	assert.Equal(t, EnvironmentAPIKey, environment.APIKey)
-	assert.Equal(t, ProjectID, environment.Project)
+	assert.Equal(t, ProjectID, environment.ProjectID)
+}
+func TestGetEnvironmentByUUID(t *testing.T) {
+	// Given
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/environments/get-by-uuid/%s/", EnvironmentUUID), req.URL.Path)
+		assert.Equal(t, "GET", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, EnvironmentJson)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	environment, err := client.GetEnvironmentByUUID(EnvironmentUUID)
+
+	// Then
+	// assert that we did not receive an error
+	assert.NoError(t, err)
+
+	// assert that the environment is as expected
+	assert.Equal(t, EnvironmentID, environment.ID)
+	assert.Equal(t, "Development", environment.Name)
+	assert.Equal(t, EnvironmentAPIKey, environment.APIKey)
+	assert.Equal(t, ProjectID, environment.ProjectID)
 }
 func TestCreateEnvironment(t *testing.T) {
 	// Given
@@ -75,7 +104,7 @@ func TestCreateEnvironment(t *testing.T) {
 	environment := &flagsmithapi.Environment{
 		Name:        EnvironmentName,
 		Description: "This is a test environment",
-		Project:     ProjectID,
+		ProjectID:   ProjectID,
 	}
 	err := client.CreateEnvironment(environment)
 
@@ -124,7 +153,7 @@ func TestUpdateEnvironment(t *testing.T) {
 		ID:          EnvironmentID,
 		Name:        EnvironmentName,
 		Description: "Updated environment description",
-		Project:     ProjectID,
+		ProjectID:   ProjectID,
 		APIKey:      EnvironmentAPIKey,
 	}
 	err := client.UpdateEnvironment(environment)
