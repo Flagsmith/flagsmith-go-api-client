@@ -234,6 +234,9 @@ func (c *Client) RemoveFeatureOwners(feature *Feature, ownerIDs []int64) error {
 }
 
 func (c *Client) manageFeatureGroupOwners(feature *Feature, groupIDs []int64, endpoint string) (*resty.Response, error) {
+	if feature.ProjectID == nil || feature.ID == nil {
+		return nil, fmt.Errorf("flagsmithapi: feature.ProjectID and feature.ID are required")
+	}
 	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, *feature.ProjectID, *feature.ID, endpoint)
 	body := struct {
 		GroupIDs []int64 `json:"group_ids"`

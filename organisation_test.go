@@ -65,9 +65,11 @@ func TestGetOrganisationUsers(t *testing.T) {
 	assert.Equal(t, "John", users[0].FirstName)
 	assert.Equal(t, "Doe", users[0].LastName)
 	assert.Equal(t, "ADMIN", users[0].Role)
+	assert.Equal(t, "2025-01-01T00:00:00Z", users[0].DateJoined)
 
 	assert.Equal(t, int64(200), users[1].ID)
 	assert.Equal(t, "jane@example.com", users[1].Email)
+	assert.Equal(t, "2025-06-01T00:00:00Z", users[1].DateJoined)
 }
 
 func TestGetOrganisationUserByEmail(t *testing.T) {

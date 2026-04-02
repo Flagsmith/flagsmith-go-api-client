@@ -96,10 +96,11 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 		}
 	}
 	if obj.GroupOwners != nil {
-		f.GroupOwners = &[]int64{}
+		groups := make([]int64, 0, len(obj.GroupOwners))
 		for _, g := range obj.GroupOwners {
-			*f.GroupOwners = append(*f.GroupOwners, g.ID)
+			groups = append(groups, g.ID)
 		}
+		f.GroupOwners = &groups
 	}
 	return nil
 }
@@ -284,11 +285,12 @@ type Organisation struct {
 }
 
 type User struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	LastLogin string `json:"last_login"`
-	UUID      string `json:"uuid"`
-	Role      string `json:"role"`
+	ID         int64  `json:"id"`
+	Email      string `json:"email"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	LastLogin  string `json:"last_login"`
+	DateJoined string `json:"date_joined"`
+	UUID       string `json:"uuid"`
+	Role       string `json:"role"`
 }

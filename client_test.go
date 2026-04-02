@@ -740,6 +740,32 @@ func TestRemoveFeatureGroupOwners(t *testing.T) {
 
 }
 
+func TestAddFeatureGroupOwnersMissingParams(t *testing.T) {
+	// Given
+	client := flagsmithapi.NewClient(MasterAPIKey, "http://localhost/api/v1")
+	fID := FeatureID
+	pID := ProjectID
+
+	featureWithoutID := flagsmithapi.Feature{Name: "test", ProjectID: &pID}
+	featureWithoutProjectID := flagsmithapi.Feature{Name: "test", ID: &fID}
+	featureWithoutBoth := flagsmithapi.Feature{Name: "test"}
+
+	// When / Then - missing ID
+	err := client.AddFeatureGroupOwners(&featureWithoutID, []int64{1})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "feature.ProjectID and feature.ID are required")
+
+	// missing ProjectID
+	err = client.RemoveFeatureGroupOwners(&featureWithoutProjectID, []int64{1})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "feature.ProjectID and feature.ID are required")
+
+	// missing both
+	err = client.AddFeatureGroupOwners(&featureWithoutBoth, []int64{1})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "feature.ProjectID and feature.ID are required")
+}
+
 // 200 is arbitrarily chosen to avoid collision with other ids
 const MVFeatureOptionID int64 = 200
 const MVFeatureOptionUUID = "8d3512d3-721a-4cae-9855-56c02cb0afe9"

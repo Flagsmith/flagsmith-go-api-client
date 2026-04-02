@@ -44,7 +44,8 @@ func (c *Client) GetOrganisationUserByEmail(orgID int64, email string) (*User, e
 	}
 	for i := range users {
 		if users[i].Email == email {
-			return &users[i], nil
+			u := users[i]
+			return &u, nil
 		}
 	}
 	return nil, UserNotFoundError{email: email}
