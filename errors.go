@@ -16,6 +16,9 @@ type SegmentNotFoundError struct {
 type FeatureMVOptionNotFoundError struct {
 	featureMVOptionUUID string
 }
+type UserNotFoundError struct {
+	email string
+}
 
 func (e FeatureNotFoundError) Error() string {
 	return fmt.Sprintf("flagsmithapi: feature '%s' not found", e.featureUUID)
@@ -31,4 +34,8 @@ func (e FeatureStateNotFoundError) Error() string {
 
 func (e FeatureMVOptionNotFoundError) Error() string {
 	return fmt.Sprintf("flagsmithapi: feature mv option '%s' not found", e.featureMVOptionUUID)
+}
+
+func (e UserNotFoundError) Error() string {
+	return fmt.Sprintf("flagsmithapi: user with email '%s' not found", e.email)
 }

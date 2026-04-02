@@ -234,7 +234,8 @@ const GetProjectResponseJson = `
         "hide_disabled_flags": false,
         "enable_dynamo_db": true,
         "migration_status": "NOT_APPLICABLE",
-        "use_edge_identities": false
+        "use_edge_identities": false,
+        "enforce_feature_owners": true
     }
 `
 const ProjectID int64 = 10
@@ -263,6 +264,16 @@ const CreateFeatureResponseJson = `
         {
             "id": 2,
             "email": "some_other_user@email.com"
+        }
+    ],
+    "group_owners": [
+        {
+            "id": 3,
+            "name": "Test Group"
+        },
+        {
+            "id": 4,
+            "name": "Another Group"
         }
     ]
 }
@@ -483,6 +494,9 @@ func TestGetFeature(t *testing.T) {
 	expectedOwners := []int64{1, 2}
 	assert.Equal(t, &expectedOwners, feature.Owners)
 
+	expectedGroupOwners := []int64{3, 4}
+	assert.Equal(t, &expectedGroupOwners, feature.GroupOwners)
+
 	expectedTags := []int64{1}
 	assert.Equal(t, expectedTags, feature.Tags)
 
@@ -631,6 +645,95 @@ func TestRemoveFeatureOwners(t *testing.T) {
 
 	// When
 	err := client.RemoveFeatureOwners(&feature, ownerIDs)
+
+	// Then
+	assert.NoError(t, err)
+
+}
+
+func TestAddFeatureGroupOwners(t *testing.T) {
+	// Given
+	projectID := ProjectID
+	featureID := FeatureID
+
+	description := "feature description"
+
+	feature := flagsmithapi.Feature{
+		Name:        FeatureName,
+		ID:          &featureID,
+		ProjectUUID: ProjectUUID,
+		ProjectID:   &projectID,
+		Description: &description,
+	}
+	groupIDs := []int64{3, 4}
+	expectedRequestBody := `{"group_ids":[3,4]}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/add-group-owners/", ProjectID, FeatureID), req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.AddFeatureGroupOwners(&feature, groupIDs)
+
+	// Then
+	assert.NoError(t, err)
+
+}
+
+func TestRemoveFeatureGroupOwners(t *testing.T) {
+	// Given
+	projectID := ProjectID
+	featureID := FeatureID
+
+	description := "feature description"
+
+	feature := flagsmithapi.Feature{
+		Name:        FeatureName,
+		ID:          &featureID,
+		ProjectUUID: ProjectUUID,
+		ProjectID:   &projectID,
+		Description: &description,
+	}
+	groupIDs := []int64{3, 4}
+
+	expectedRequestBody := `{"group_ids":[3,4]}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, fmt.Sprintf("/api/v1/projects/%d/features/%d/remove-group-owners/", ProjectID, FeatureID), req.URL.Path)
+		assert.Equal(t, "POST", req.Method)
+		assert.Equal(t, "Api-Key "+MasterAPIKey, req.Header.Get("Authorization"))
+
+		// Test that we sent the correct body
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequestBody, string(rawBody))
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.RemoveFeatureGroupOwners(&feature, groupIDs)
 
 	// Then
 	assert.NoError(t, err)
