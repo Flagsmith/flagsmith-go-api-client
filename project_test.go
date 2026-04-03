@@ -38,6 +38,7 @@ func TestGetProject(t *testing.T) {
 	assert.Equal(t, ProjectID, project.ID)
 	assert.Equal(t, ProjectUUID, project.UUID)
 	assert.Equal(t, "project-1", project.Name)
+	assert.Equal(t, true, project.EnforceFeatureOwners)
 
 }
 

@@ -233,6 +233,42 @@ func (c *Client) RemoveFeatureOwners(feature *Feature, ownerIDs []int64) error {
 	return nil
 }
 
+func (c *Client) manageFeatureGroupOwners(feature *Feature, groupIDs []int64, endpoint string) (*resty.Response, error) {
+	if feature.ProjectID == nil || feature.ID == nil {
+		return nil, fmt.Errorf("flagsmithapi: feature.ProjectID and feature.ID are required")
+	}
+	url := fmt.Sprintf("%s/projects/%d/features/%d/%s/", c.baseURL, *feature.ProjectID, *feature.ID, endpoint)
+	body := struct {
+		GroupIDs []int64 `json:"group_ids"`
+	}{
+		GroupIDs: groupIDs,
+	}
+	resp, err := c.client.R().SetBody(body).Post(url)
+	return resp, err
+}
+
+func (c *Client) AddFeatureGroupOwners(feature *Feature, groupIDs []int64) error {
+	resp, err := c.manageFeatureGroupOwners(feature, groupIDs, "add-group-owners")
+	if err != nil {
+		return err
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error adding feature group owners: %s", resp)
+	}
+	return nil
+}
+
+func (c *Client) RemoveFeatureGroupOwners(feature *Feature, groupIDs []int64) error {
+	resp, err := c.manageFeatureGroupOwners(feature, groupIDs, "remove-group-owners")
+	if err != nil {
+		return err
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("flagsmithapi: Error removing feature group owners: %s", resp)
+	}
+	return nil
+}
+
 func (c *Client) GetFeatureMVOption(featureUUID, mvOptionUUID string) (*FeatureMultivariateOption, error) {
 	url := fmt.Sprintf("%s/multivariate/options/get-by-uuid/%s/", c.baseURL, mvOptionUUID)
 	featureMVOption := FeatureMultivariateOption{}

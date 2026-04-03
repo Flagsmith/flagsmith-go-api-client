@@ -17,6 +17,7 @@ type Project struct {
 	FeatureNameRegex               string `json:"feature_name_regex,omitempty"`
 	StaleFlagsLimitDays            int64  `json:"stale_flags_limit_days,omitempty"`
 	EnableRealtimeUpdates          bool   `json:"enable_realtime_updates,omitempty"`
+	EnforceFeatureOwners           bool   `json:"enforce_feature_owners,omitempty"`
 }
 
 type FeatureMultivariateOption struct {
@@ -43,6 +44,7 @@ type Feature struct {
 	DefaultEnabled bool     `json:"default_enabled,omitempty"`
 	IsArchived     bool     `json:"is_archived,omitempty"`
 	Owners         *[]int64 `json:"owners,omitempty"`
+	GroupOwners    *[]int64 `json:"group_owners,omitempty"`
 	Tags           []int64  `json:"tags"`
 
 	ProjectUUID string `json:"-"`
@@ -53,18 +55,22 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 	type owner struct {
 		ID int64 `json:"id"`
 	}
+	type groupOwner struct {
+		ID int64 `json:"id"`
+	}
 	var obj struct {
-		Name           string  `json:"name"`
-		UUID           string  `json:"uuid,omitempty"`
-		ID             *int64  `json:"id,omitempty"`
-		Type           *string `json:"type,omitempty"`
-		Description    *string `json:"description,omitempty"`
-		InitialValue   string  `json:"initial_value,omitempty"`
-		DefaultEnabled bool    `json:"default_enabled,omitempty"`
-		IsArchived     bool    `json:"is_archived,omitempty"`
-		Owners         []owner `json:"owners,omitempty"`
-		ProjectID      *int64  `json:"project,omitempty"`
-		Tags           []int64 `json:"tags"`
+		Name           string       `json:"name"`
+		UUID           string       `json:"uuid,omitempty"`
+		ID             *int64       `json:"id,omitempty"`
+		Type           *string      `json:"type,omitempty"`
+		Description    *string      `json:"description,omitempty"`
+		InitialValue   string       `json:"initial_value,omitempty"`
+		DefaultEnabled bool         `json:"default_enabled,omitempty"`
+		IsArchived     bool         `json:"is_archived,omitempty"`
+		Owners         []owner      `json:"owners,omitempty"`
+		GroupOwners    []groupOwner `json:"group_owners,omitempty"`
+		ProjectID      *int64       `json:"project,omitempty"`
+		Tags           []int64      `json:"tags"`
 	}
 
 	err := json.Unmarshal(data, &obj)
@@ -88,6 +94,13 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 		for _, o := range obj.Owners {
 			*f.Owners = append(*f.Owners, o.ID)
 		}
+	}
+	if obj.GroupOwners != nil {
+		groups := make([]int64, 0, len(obj.GroupOwners))
+		for _, g := range obj.GroupOwners {
+			groups = append(groups, g.ID)
+		}
+		f.GroupOwners = &groups
 	}
 	return nil
 }
@@ -269,4 +282,15 @@ type Organisation struct {
 	Force2FA                     bool   `json:"force_2fa"`
 	RestrictProjectCreateToAdmin bool   `json:"restrict_project_create_to_admin"`
 	PersistTraitData             bool   `json:"persist_trait_data"`
+}
+
+type User struct {
+	ID         int64  `json:"id"`
+	Email      string `json:"email"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	LastLogin  string `json:"last_login"`
+	DateJoined string `json:"date_joined"`
+	UUID       string `json:"uuid"`
+	Role       string `json:"role"`
 }
