@@ -17,7 +17,7 @@ type Project struct {
 	FeatureNameRegex               string `json:"feature_name_regex,omitempty"`
 	StaleFlagsLimitDays            int64  `json:"stale_flags_limit_days,omitempty"`
 	EnableRealtimeUpdates          bool   `json:"enable_realtime_updates,omitempty"`
-	EnforceFeatureOwners           bool   `json:"enforce_feature_owners,omitempty"`
+	EnforceFeatureOwners           *bool  `json:"enforce_feature_owners,omitempty"`
 }
 
 type FeatureMultivariateOption struct {
