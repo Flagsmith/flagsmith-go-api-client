@@ -38,7 +38,8 @@ func TestGetProject(t *testing.T) {
 	assert.Equal(t, ProjectID, project.ID)
 	assert.Equal(t, ProjectUUID, project.UUID)
 	assert.Equal(t, "project-1", project.Name)
-	assert.Equal(t, true, project.EnforceFeatureOwners)
+	assert.NotNil(t, project.EnforceFeatureOwners)
+	assert.Equal(t, true, *project.EnforceFeatureOwners)
 
 }
 
@@ -80,6 +81,38 @@ func TestCreateProjectByUUID(t *testing.T) {
 	assert.Equal(t, "project-1", project.Name)
 
 }
+func TestUpdateProjectEnforceFeatureOwnersFalse(t *testing.T) {
+	// Given
+	enforceOwners := false
+	project := flagsmithapi.Project{
+		ID:                   ProjectID,
+		Name:                 ProjectName,
+		Organisation:         OrganisationID,
+		EnforceFeatureOwners: &enforceOwners,
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+
+		// Verify false is present in the payload (not omitted)
+		assert.Contains(t, string(rawBody), `"enforce_feature_owners":false`)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateProject(&project)
+
+	// Then
+	assert.NoError(t, err)
+}
+
 func TestUpdateProject(t *testing.T) {
 	// Given
 	project := flagsmithapi.Project{
