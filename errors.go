@@ -47,6 +47,9 @@ type MetadataFieldInvalidValueError struct {
 }
 
 func (e MetadataFieldNotFoundError) Error() string {
+	if len(e.KnownNames) == 0 {
+		return fmt.Sprintf("flagsmithapi: no custom fields are enabled for %ss in this project", e.Entity)
+	}
 	return fmt.Sprintf("flagsmithapi: no custom field named '%s' is available for %ss in this project (available: %s)",
 		e.Name, e.Entity, strings.Join(e.KnownNames, ", "))
 }

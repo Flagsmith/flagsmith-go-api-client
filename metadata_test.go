@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -741,4 +742,216 @@ func TestGetEnvironmentByUUIDReturnsMetadata(t *testing.T) {
 	require.NotNil(t, environment.Metadata)
 	require.Equal(t, 1, len(*environment.Metadata))
 	assert.Equal(t, EnvironmentModelFieldID, (*environment.Metadata)[0].ModelField)
+}
+
+// Writes are the point of this change, and sending a model field ID bound to the wrong
+// entity type would bind the value to the wrong entity. These assert the request body
+// carries the entity-specific ID.
+
+func TestCreateSegmentSendsMetadata(t *testing.T) {
+	// Given
+	newSegment := flagsmithapi.Segment{
+		Name:      "mobile_users",
+		ProjectID: &[]int64{ProjectID}[0],
+		Rules:     []flagsmithapi.Rule{},
+		Metadata:  &[]flagsmithapi.Metadata{{ModelField: SegmentModelFieldID, FieldValue: "PROD-123"}},
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/segments/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Contains(t, string(rawBody), `"metadata":[{"model_field":302,"field_value":"PROD-123"}]`)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, `{"id": 300, "name": "mobile_users", "project": 10, "rules": [],
+			"metadata": [{"id": 6, "model_field": 302, "field_value": "PROD-123"}]}`)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateSegment(&newSegment)
+
+	// Then
+	require.NoError(t, err)
+	require.NotNil(t, newSegment.Metadata)
+	require.Equal(t, 1, len(*newSegment.Metadata))
+	assert.Equal(t, SegmentModelFieldID, (*newSegment.Metadata)[0].ModelField)
+}
+
+func TestUpdateSegmentSendsMetadata(t *testing.T) {
+	// Given
+	segment := flagsmithapi.Segment{
+		ID:        &[]int64{SegmentID}[0],
+		Name:      "mobile_users",
+		ProjectID: &[]int64{ProjectID}[0],
+		Rules:     []flagsmithapi.Rule{},
+		Metadata:  &[]flagsmithapi.Metadata{{ModelField: SegmentModelFieldID, FieldValue: "PROD-456"}},
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/segments/%d/", ProjectID, SegmentID),
+		func(rw http.ResponseWriter, req *http.Request) {
+			assert.Equal(t, "PUT", req.Method)
+
+			rawBody, err := io.ReadAll(req.Body)
+			assert.NoError(t, err)
+			assert.Contains(t, string(rawBody), `"metadata":[{"model_field":302,"field_value":"PROD-456"}]`)
+
+			rw.Header().Set("Content-Type", "application/json")
+			_, err = io.WriteString(rw, `{"id": 300, "name": "mobile_users", "project": 10, "rules": [],
+			"metadata": [{"id": 6, "model_field": 302, "field_value": "PROD-456"}]}`)
+			assert.NoError(t, err)
+		})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateSegment(&segment)
+
+	// Then
+	require.NoError(t, err)
+	require.NotNil(t, segment.Metadata)
+	assert.Equal(t, "PROD-456", (*segment.Metadata)[0].FieldValue)
+}
+
+func TestCreateEnvironmentSendsMetadata(t *testing.T) {
+	// Given
+	newEnvironment := flagsmithapi.Environment{
+		Name:      "Development",
+		ProjectID: ProjectID,
+		Metadata:  &[]flagsmithapi.Metadata{{ModelField: EnvironmentModelFieldID, FieldValue: "PROD-123"}},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "POST", req.Method)
+
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Contains(t, string(rawBody), `"metadata":[{"model_field":303,"field_value":"PROD-123"}]`)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, `{"id": 100, "name": "Development", "description": "", "project": 10,
+			"metadata": [{"id": 7, "model_field": 303, "field_value": "PROD-123"}]}`)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.CreateEnvironment(&newEnvironment)
+
+	// Then
+	require.NoError(t, err)
+	require.NotNil(t, newEnvironment.Metadata)
+	assert.Equal(t, EnvironmentModelFieldID, (*newEnvironment.Metadata)[0].ModelField)
+}
+
+func TestUpdateEnvironmentSendsMetadata(t *testing.T) {
+	// Given
+	environment := flagsmithapi.Environment{
+		ID:        EnvironmentID,
+		Name:      "Development",
+		APIKey:    EnvironmentAPIKey,
+		ProjectID: ProjectID,
+		Metadata:  &[]flagsmithapi.Metadata{{ModelField: EnvironmentModelFieldID, FieldValue: "PROD-456"}},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, "PUT", req.Method)
+
+		rawBody, err := io.ReadAll(req.Body)
+		assert.NoError(t, err)
+		assert.Contains(t, string(rawBody), `"metadata":[{"model_field":303,"field_value":"PROD-456"}]`)
+
+		rw.Header().Set("Content-Type", "application/json")
+		_, err = io.WriteString(rw, `{"id": 100, "name": "Development", "description": "", "project": 10,
+			"metadata": [{"id": 7, "model_field": 303, "field_value": "PROD-456"}]}`)
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	err := client.UpdateEnvironment(&environment)
+
+	// Then
+	require.NoError(t, err)
+	require.NotNil(t, environment.Metadata)
+	assert.Equal(t, "PROD-456", (*environment.Metadata)[0].FieldValue)
+}
+
+// The API validates the length with Python's len on a str, which counts characters, so a
+// value of 2000 multi byte characters must be accepted here too.
+func TestMetadataFieldValidateValueCountsRunesNotBytes(t *testing.T) {
+	field := flagsmithapi.MetadataField{Name: "Test Field", Type: "str"}
+
+	// 2000 characters, 6000 bytes.
+	assert.NoError(t, field.ValidateValue(strings.Repeat("日", flagsmithapi.MetadataFieldValueMaxLength)))
+	assert.Error(t, field.ValidateValue(strings.Repeat("日", flagsmithapi.MetadataFieldValueMaxLength+1)))
+}
+
+func TestMetadataFieldNotFoundErrorWithNoBoundFields(t *testing.T) {
+	// Given a project where nothing is enabled for the entity
+	server, _ := metadataTestServer(t, `{"count": 0, "next": null, "results": []}`)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+	resolver, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntityFeature)
+	require.NoError(t, err)
+
+	// When
+	_, err = resolver.ModelFieldID("Jira Ticket")
+
+	// Then the message says so, rather than trailing an empty list
+	require.IsType(t, flagsmithapi.MetadataFieldNotFoundError{}, err)
+	assert.Equal(t, "flagsmithapi: no custom fields are enabled for features in this project", err.Error())
+}
+
+// get-by-uuid found the feature, so a 404 from the metadata read means it has just been
+// deleted. That should surface as a not-found, not as a metadata error.
+func TestGetFeatureReportsNotFoundWhenDeletedDuringHydration(t *testing.T) {
+	// Given
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, CreateFeatureResponseJson)
+		assert.NoError(t, err)
+	})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/features/%d/", ProjectID, FeatureID),
+		func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusNotFound)
+		})
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	feature, err := client.GetFeature(FeatureUUID)
+
+	// Then
+	assert.Nil(t, feature)
+	assert.IsType(t, flagsmithapi.FeatureNotFoundError{}, err)
 }

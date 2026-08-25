@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // MetadataFieldValueMaxLength mirrors FIELD_VALUE_MAX_LENGTH in
@@ -52,9 +53,11 @@ func (f MetadataField) ValidateValue(value string) error {
 		// field_value is a TextField with blank=False, so DRF rejects empty values.
 		return fmt.Errorf("value for custom field '%s' must not be empty", f.Name)
 	}
-	if len(value) > MetadataFieldValueMaxLength {
+	// Counted in runes, not bytes: the API validates with Python's len on a str, so a
+	// value of 2000 multi byte characters is valid there and must be valid here.
+	if length := utf8.RuneCountInString(value); length > MetadataFieldValueMaxLength {
 		return fmt.Errorf("value for custom field '%s' is %d characters, the maximum is %d",
-			f.Name, len(value), MetadataFieldValueMaxLength)
+			f.Name, length, MetadataFieldValueMaxLength)
 	}
 
 	switch f.Type {
