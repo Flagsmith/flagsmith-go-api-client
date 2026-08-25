@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -14,13 +15,32 @@ type Client struct {
 	master_api_key string
 	baseURL        string
 	client         *resty.Client
+
+	// Caches for project identifiers, which are immutable. Guarded by cacheMu because
+	// callers such as the Terraform provider make concurrent requests.
+	cacheMu        sync.Mutex
+	projectCache   map[int64]projectRef
+	projectIDCache map[string]int64
+}
+
+// projectRef holds the immutable identifiers of a project. Only these are cached; the
+// mutable parts of a project are always read live.
+type projectRef struct {
+	UUID         string
+	Organisation int64
 }
 
 func NewClient(masterAPIKey string, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = BaseAPIURL
 	}
-	c := &Client{master_api_key: masterAPIKey, baseURL: baseURL, client: resty.New()}
+	c := &Client{
+		master_api_key: masterAPIKey,
+		baseURL:        baseURL,
+		client:         resty.New(),
+		projectCache:   map[int64]projectRef{},
+		projectIDCache: map[string]int64{},
+	}
 	c.client.SetHeaders(map[string]string{
 		"Accept":        "application/json",
 		"Content-type":  "application/json",
@@ -28,6 +48,32 @@ func NewClient(masterAPIKey string, baseURL string) *Client {
 	})
 	return c
 
+}
+
+// getCachedProjectRef returns the immutable identifiers of a project, fetching them at
+// most once per client. Callers must hold cacheMu.
+func (c *Client) getCachedProjectRef(projectID int64) (projectRef, error) {
+	if ref, ok := c.projectCache[projectID]; ok {
+		return ref, nil
+	}
+
+	project, err := c.GetProjectByID(projectID)
+	if err != nil {
+		return projectRef{}, err
+	}
+
+	ref := projectRef{UUID: project.UUID, Organisation: project.Organisation}
+	c.projectCache[projectID] = ref
+
+	return ref, nil
+}
+
+// projectRefByID is getCachedProjectRef with the lock taken.
+func (c *Client) projectRefByID(projectID int64) (projectRef, error) {
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+
+	return c.getCachedProjectRef(projectID)
 }
 
 // Get the feature state associated with the environment for a given feature
@@ -127,7 +173,7 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting feature: %s", resp)
 	}
-	project, err := c.GetProjectByID(*feature.ProjectID)
+	project, err := c.projectRefByID(*feature.ProjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -190,11 +236,28 @@ func (c *Client) UpdateFeature(feature *Feature) error {
 }
 
 func (c *Client) getProjectID(projectUUID string) (int64, error) {
+	return c.GetProjectIDByUUID(projectUUID)
+}
+
+// GetProjectIDByUUID resolves a project UUID to its ID, fetching it at most once per
+// client. Project IDs and UUIDs are immutable, so this is safe to cache.
+func (c *Client) GetProjectIDByUUID(projectUUID string) (int64, error) {
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+
+	if projectID, ok := c.projectIDCache[projectUUID]; ok {
+		return projectID, nil
+	}
+
 	project, err := c.GetProject(projectUUID)
 
 	if err != nil {
 		return 0, err
 	}
+
+	c.projectIDCache[projectUUID] = project.ID
+	c.projectCache[project.ID] = projectRef{UUID: project.UUID, Organisation: project.Organisation}
+
 	return project.ID, nil
 }
 
@@ -369,7 +432,7 @@ func (c *Client) GetSegment(segmentUUID string) (*Segment, error) {
 		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting segment: %s", resp)
 	}
-	project, err := c.GetProjectByID(*segment.ProjectID)
+	project, err := c.projectRefByID(*segment.ProjectID)
 	if err != nil {
 		return nil, err
 	}
