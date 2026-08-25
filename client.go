@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -14,13 +15,24 @@ type Client struct {
 	master_api_key string
 	baseURL        string
 	client         *resty.Client
+
+	// Resolvers are cached because building one costs three requests and callers need
+	// one per entity they write. Keyed on project and entity, and guarded by
+	// resolverMu since callers such as the Terraform provider work concurrently.
+	resolverMu    sync.Mutex
+	resolverCache map[string]*MetadataFieldResolver
 }
 
 func NewClient(masterAPIKey string, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = BaseAPIURL
 	}
-	c := &Client{master_api_key: masterAPIKey, baseURL: baseURL, client: resty.New()}
+	c := &Client{
+		master_api_key: masterAPIKey,
+		baseURL:        baseURL,
+		client:         resty.New(),
+		resolverCache:  map[string]*MetadataFieldResolver{},
+	}
 	c.client.SetHeaders(map[string]string{
 		"Accept":        "application/json",
 		"Content-type":  "application/json",

@@ -919,3 +919,130 @@ func TestMetadataFieldNotFoundErrorWithNoBoundFields(t *testing.T) {
 	require.IsType(t, flagsmithapi.MetadataFieldNotFoundError{}, err)
 	assert.Equal(t, "flagsmithapi: no custom fields are enabled for features in this project", err.Error())
 }
+
+func TestGetMetadataFieldResolverCaches(t *testing.T) {
+	// Given
+	server, counter := metadataTestServer(t)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When the same project and entity is asked for repeatedly
+	for i := 0; i < 3; i++ {
+		resolver, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntityFeature)
+		require.NoError(t, err)
+
+		modelFieldID, err := resolver.ModelFieldID("Jira Ticket")
+		require.NoError(t, err)
+		assert.Equal(t, FeatureModelFieldID, modelFieldID)
+	}
+
+	// Then it is only built once
+	assert.Equal(t, 1, counter.count("project"))
+	assert.Equal(t, 1, counter.count("content-types"))
+	assert.Equal(t, 1, counter.count("fields"))
+}
+
+// The cache is keyed on project and entity, so a second entity type in the same project
+// is built separately. That is the cost of caching the resolver rather than the
+// responses behind it.
+func TestGetMetadataFieldResolverCachesPerEntity(t *testing.T) {
+	// Given
+	server, counter := metadataTestServer(t)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	featureResolver, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntityFeature)
+	require.NoError(t, err)
+	segmentResolver, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntitySegment)
+	require.NoError(t, err)
+
+	// Then each resolves to its own entity's model field
+	featureModelFieldID, err := featureResolver.ModelFieldID("Jira Ticket")
+	require.NoError(t, err)
+	assert.Equal(t, FeatureModelFieldID, featureModelFieldID)
+
+	segmentModelFieldID, err := segmentResolver.ModelFieldID("Jira Ticket")
+	require.NoError(t, err)
+	assert.Equal(t, SegmentModelFieldID, segmentModelFieldID)
+
+	assert.Equal(t, 2, counter.count("fields"))
+}
+
+func TestGetMetadataFieldResolverCacheIsConcurrencySafe(t *testing.T) {
+	// Given
+	server, counter := metadataTestServer(t)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resolver, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntityFeature)
+			assert.NoError(t, err)
+			if err == nil {
+				modelFieldID, err := resolver.ModelFieldID("Jira Ticket")
+				assert.NoError(t, err)
+				assert.Equal(t, FeatureModelFieldID, modelFieldID)
+			}
+		}()
+	}
+	wg.Wait()
+
+	// Then
+	assert.Equal(t, 1, counter.count("fields"))
+}
+
+// A failed build must not be cached, or a transient error would poison the client.
+func TestGetMetadataFieldResolverDoesNotCacheFailures(t *testing.T) {
+	// Given a fields endpoint that fails once and then succeeds
+	mux := http.NewServeMux()
+	counter := newRequestCounter()
+
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, err := io.WriteString(rw, GetProjectResponseJson)
+		assert.NoError(t, err)
+	})
+	mux.HandleFunc(fmt.Sprintf("/api/v1/organisations/%d/metadata-model-fields/supported-content-types/", OrganisationIDForMetadata),
+		func(rw http.ResponseWriter, req *http.Request) {
+			rw.Header().Set("Content-Type", "application/json")
+			_, err := io.WriteString(rw, SupportedContentTypesJson)
+			assert.NoError(t, err)
+		})
+	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/metadata/fields/", ProjectID),
+		func(rw http.ResponseWriter, req *http.Request) {
+			if counter.count("fields") == 0 {
+				counter.record("fields")
+				rw.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			counter.record("fields")
+			rw.Header().Set("Content-Type", "application/json")
+			_, err := io.WriteString(rw, MetadataFieldsJson)
+			assert.NoError(t, err)
+		})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
+
+	// When the first attempt fails
+	_, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntityFeature)
+	require.Error(t, err)
+
+	// Then a retry still works
+	resolver, err := client.GetMetadataFieldResolver(ProjectID, flagsmithapi.MetadataEntityFeature)
+	require.NoError(t, err)
+
+	modelFieldID, err := resolver.ModelFieldID("Jira Ticket")
+	require.NoError(t, err)
+	assert.Equal(t, FeatureModelFieldID, modelFieldID)
+}

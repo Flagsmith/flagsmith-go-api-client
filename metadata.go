@@ -276,9 +276,20 @@ func (r *MetadataFieldResolver) Field(name string) (MetadataField, bool) {
 
 // GetMetadataFieldResolver returns a resolver for the given project and entity.
 //
-// This costs three requests: the project, its organisation's content types, and the
-// project's custom field definitions.
+// Building one costs three requests: the project, its organisation's content types, and
+// the project's custom field definitions. The result is cached for the lifetime of the
+// client, so a caller writing many entities in one project pays that once. A field
+// created after the first call for a project will not be seen.
 func (c *Client) GetMetadataFieldResolver(projectID int64, entity MetadataEntity) (*MetadataFieldResolver, error) {
+	cacheKey := fmt.Sprintf("%d:%s", projectID, entity)
+
+	c.resolverMu.Lock()
+	defer c.resolverMu.Unlock()
+
+	if resolver, ok := c.resolverCache[cacheKey]; ok {
+		return resolver, nil
+	}
+
 	project, err := c.GetProjectByID(projectID)
 	if err != nil {
 		return nil, err
@@ -299,7 +310,10 @@ func (c *Client) GetMetadataFieldResolver(projectID int64, entity MetadataEntity
 		return nil, err
 	}
 
-	return newMetadataFieldResolver(entity, contentTypeID, fields), nil
+	resolver := newMetadataFieldResolver(entity, contentTypeID, fields)
+	c.resolverCache[cacheKey] = resolver
+
+	return resolver, nil
 }
 
 // BuildMetadata converts a map of custom field names to values into the wire format,
