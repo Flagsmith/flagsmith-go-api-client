@@ -133,11 +133,10 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	}
 	feature.ProjectUUID = project.UUID
 
-	// `features/get-by-uuid/` is served by CreateFeatureSerializer, which omits
-	// metadata (see api/features/views.py::get_feature_by_uuid), so it has to be read
+	// `features/get-by-uuid/` omits metadata, so it has to be read
 	// from the project scoped retrieve endpoint instead.
 	if feature.ID != nil {
-		metadata, err := c.getFeatureMetadata(featureUUID, *feature.ProjectID, *feature.ID)
+		metadata, err := c.getFeatureMetadata(*feature.ProjectID, *feature.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +151,7 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 //
 // It decodes into an anonymous struct rather than a Feature so that the response cannot
 // overwrite fields the caller has already populated.
-func (c *Client) getFeatureMetadata(featureUUID string, projectID, featureID int64) (*[]Metadata, error) {
+func (c *Client) getFeatureMetadata(projectID, featureID int64) (*[]Metadata, error) {
 	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, featureID)
 	result := struct {
 		Metadata *[]Metadata `json:"metadata"`
@@ -165,11 +164,6 @@ func (c *Client) getFeatureMetadata(featureUUID string, projectID, featureID int
 	}
 
 	if !resp.IsSuccess() {
-		// The feature was found a moment ago, so a 404 here means it has just been
-		// deleted. Report that the same way the get-by-uuid path does.
-		if resp.StatusCode() == http.StatusNotFound {
-			return nil, FeatureNotFoundError{featureUUID: featureUUID}
-		}
 		return nil, fmt.Errorf("flagsmithapi: Error getting feature metadata: %s", resp)
 	}
 

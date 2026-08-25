@@ -919,39 +919,3 @@ func TestMetadataFieldNotFoundErrorWithNoBoundFields(t *testing.T) {
 	require.IsType(t, flagsmithapi.MetadataFieldNotFoundError{}, err)
 	assert.Equal(t, "flagsmithapi: no custom fields are enabled for features in this project", err.Error())
 }
-
-// get-by-uuid found the feature, so a 404 from the metadata read means it has just been
-// deleted. That should surface as a not-found, not as a metadata error.
-func TestGetFeatureReportsNotFoundWhenDeletedDuringHydration(t *testing.T) {
-	// Given
-	mux := http.NewServeMux()
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/features/get-by-uuid/%s/", FeatureUUID), func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, CreateFeatureResponseJson)
-		assert.NoError(t, err)
-	})
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/features/%d/", ProjectID, FeatureID),
-		func(rw http.ResponseWriter, req *http.Request) {
-			rw.WriteHeader(http.StatusNotFound)
-		})
-
-	mux.HandleFunc(fmt.Sprintf("/api/v1/projects/%d/", ProjectID), func(rw http.ResponseWriter, req *http.Request) {
-		rw.Header().Set("Content-Type", "application/json")
-		_, err := io.WriteString(rw, GetProjectResponseJson)
-		assert.NoError(t, err)
-	})
-
-	server := httptest.NewServer(mux)
-	defer server.Close()
-
-	client := flagsmithapi.NewClient(MasterAPIKey, server.URL+"/api/v1")
-
-	// When
-	feature, err := client.GetFeature(FeatureUUID)
-
-	// Then
-	assert.Nil(t, feature)
-	assert.IsType(t, flagsmithapi.FeatureNotFoundError{}, err)
-}
