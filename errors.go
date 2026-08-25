@@ -21,24 +21,15 @@ type UserNotFoundError struct {
 	email string
 }
 
-// MetadataFieldNotFoundError is returned when no custom field with the given name is
-// visible to the project. Fields are exported so that callers can build their own
-// messages without parsing this one.
 type MetadataFieldNotFoundError struct {
 	Name       string
 	Entity     string
 	KnownNames []string
 }
-
-// MetadataFieldNotBoundError is returned when a custom field exists in the project but
-// is not enabled for the entity being written to.
 type MetadataFieldNotBoundError struct {
 	Name   string
 	Entity string
 }
-
-// MetadataFieldInvalidValueError is returned when a value does not match its custom
-// field's configured type.
 type MetadataFieldInvalidValueError struct {
 	Name      string
 	FieldType string

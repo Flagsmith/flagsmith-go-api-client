@@ -16,8 +16,6 @@ const MetadataFieldValueMaxLength = 2000
 // metadataFieldsPageLimit guards against looping forever on a bad `next` link.
 const metadataFieldsPageLimit = 100
 
-// Metadata is a single custom field value attached to an entity.
-//
 // FieldValue is always a string on the wire, whatever the custom field's configured
 // type. ModelField is a MetadataModelField ID, not a MetadataField ID.
 type Metadata struct {
@@ -88,7 +86,6 @@ type ContentTypeInfo struct {
 	Model    string `json:"model"`
 }
 
-// MetadataEntity is an entity that custom fields can be attached to.
 type MetadataEntity string
 
 const (
@@ -152,8 +149,6 @@ func (c *Client) GetProjectMetadataFields(projectID int64) ([]MetadataField, err
 		metadataFieldsPageLimit)
 }
 
-// GetSupportedMetadataContentTypes returns the content types that custom fields can be
-// bound to for the given organisation.
 func (c *Client) GetSupportedMetadataContentTypes(organisationID int64) ([]ContentTypeInfo, error) {
 	requestURL := fmt.Sprintf("%s/organisations/%d/metadata-model-fields/supported-content-types/",
 		c.baseURL, organisationID)
@@ -243,10 +238,9 @@ func newMetadataFieldResolver(entity MetadataEntity, contentTypeID int64, fields
 	return resolver
 }
 
-// ModelFieldID resolves a custom field name to the model field ID to write against.
-//
-// It returns a MetadataFieldNotBoundError if the field exists in the project but is not
-// enabled for this entity, and a MetadataFieldNotFoundError if it does not exist at all.
+// ModelFieldID returns a MetadataFieldNotBoundError if the field exists in the project
+// but is not enabled for this entity, and a MetadataFieldNotFoundError if it does not
+// exist at all.
 func (r *MetadataFieldResolver) ModelFieldID(name string) (int64, error) {
 	if modelFieldID, ok := r.nameToModelFieldID[name]; ok {
 		return modelFieldID, nil

@@ -136,7 +136,6 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	// `features/get-by-uuid/` is served by CreateFeatureSerializer, which omits
 	// metadata (see api/features/views.py::get_feature_by_uuid), so it has to be read
 	// from the project scoped retrieve endpoint instead.
-	// TODO: drop this once get_feature_by_uuid returns metadata.
 	if feature.ID != nil {
 		metadata, err := c.getFeatureMetadata(featureUUID, *feature.ProjectID, *feature.ID)
 		if err != nil {

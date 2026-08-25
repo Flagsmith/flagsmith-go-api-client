@@ -59,9 +59,6 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 	type groupOwner struct {
 		ID int64 `json:"id"`
 	}
-	// WARNING: this is an explicit allowlist. Any field added to Feature must also be
-	// added here and assigned below, or it will be silently dropped when a response is
-	// decoded. TestFeatureUnmarshalJSONDoesNotDropFields guards against this.
 	var obj struct {
 		Name           string       `json:"name"`
 		UUID           string       `json:"uuid,omitempty"`
