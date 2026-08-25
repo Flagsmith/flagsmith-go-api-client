@@ -135,6 +135,68 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 	return &feature, nil
 }
 
+// GetFeatureByName returns the feature in the given project whose name is an exact
+// match for featureName.
+//
+// The match is case sensitive. The API's `search` filter is a case insensitive
+// "contains" match, so results are filtered client side.
+func (c *Client) GetFeatureByName(projectUUID string, featureName string) (*Feature, error) {
+	projectID, err := c.getProjectID(projectUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/projects/%d/features/", c.baseURL, projectID)
+	result := struct {
+		Next    *string    `json:"next"`
+		Results []*Feature `json:"results"`
+	}{}
+
+	resp, err := c.client.R().
+		SetQueryParams(map[string]string{
+			"search":    featureName,
+			"page_size": searchPageSize,
+		}).
+		SetResult(&result).
+		Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error searching features: %s", resp)
+	}
+
+	// `search` is a "contains" match, so a full page means results may have been
+	// truncated and an exact match could have been missed. This needs a project with
+	// more than searchPageSize features whose names all contain featureName.
+	if result.Next != nil {
+		return nil, fmt.Errorf("flagsmithapi: too many features in project '%s' have names containing '%s' to identify an exact match",
+			projectUUID, featureName)
+	}
+
+	var matches []*Feature
+	for _, feature := range result.Results {
+		if feature.Name == featureName {
+			matches = append(matches, feature)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, FeatureNotFoundError{featureName: featureName, projectUUID: projectUUID}
+	case 1:
+		feature := matches[0]
+		// The API never returns the project UUID, and unlike GetFeature we already
+		// know it, so there is no need to look the project up again.
+		feature.ProjectUUID = projectUUID
+		return feature, nil
+	default:
+		return nil, MultipleFeaturesFoundError{featureName: featureName, projectUUID: projectUUID, count: len(matches)}
+	}
+}
+
 func (c *Client) CreateFeature(feature *Feature) error {
 	if feature.ProjectID == nil {
 		projectID, err := c.getProjectID(feature.ProjectUUID)
@@ -188,6 +250,11 @@ func (c *Client) UpdateFeature(feature *Feature) error {
 
 	return nil
 }
+
+// searchPageSize is CustomPagination.max_page_size. It is also the API's default, but
+// is sent explicitly so that a change to that default cannot silently start truncating
+// search results.
+const searchPageSize = "999"
 
 func (c *Client) getProjectID(projectUUID string) (int64, error) {
 	project, err := c.GetProject(projectUUID)
@@ -376,6 +443,72 @@ func (c *Client) GetSegment(segmentUUID string) (*Segment, error) {
 	segment.ProjectUUID = project.UUID
 	return &segment, nil
 }
+
+// GetSegmentByName returns the segment in the given project whose name is an exact
+// match for segmentName.
+//
+// The match is case sensitive. The API's `q` filter is a case insensitive
+// "contains" match, so results are filtered client side.
+//
+// Note that segment names are not unique within a project: if more than one segment
+// matches, a MultipleSegmentsFoundError is returned. System segments are excluded by
+// the list endpoint, so they can only be looked up by UUID.
+func (c *Client) GetSegmentByName(projectUUID string, segmentName string) (*Segment, error) {
+	projectID, err := c.getProjectID(projectUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/projects/%d/segments/", c.baseURL, projectID)
+	result := struct {
+		Next    *string    `json:"next"`
+		Results []*Segment `json:"results"`
+	}{}
+
+	resp, err := c.client.R().
+		SetQueryParams(map[string]string{
+			// NOTE: segments filter on `q`, features filter on `search`. Passing
+			// `search` here is silently ignored and returns every segment.
+			"q":         segmentName,
+			"page_size": searchPageSize,
+		}).
+		SetResult(&result).
+		Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error searching segments: %s", resp)
+	}
+
+	if result.Next != nil {
+		return nil, fmt.Errorf("flagsmithapi: too many segments in project '%s' have names containing '%s' to identify an exact match",
+			projectUUID, segmentName)
+	}
+
+	var matches []*Segment
+	for _, segment := range result.Results {
+		if segment.Name == segmentName {
+			matches = append(matches, segment)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, SegmentNotFoundError{segmentName: segmentName, projectUUID: projectUUID}
+	case 1:
+		segment := matches[0]
+		// The API never returns the project UUID, and unlike GetSegment we already
+		// know it, so there is no need to look the project up again.
+		segment.ProjectUUID = projectUUID
+		return segment, nil
+	default:
+		return nil, MultipleSegmentsFoundError{segmentName: segmentName, projectUUID: projectUUID, count: len(matches)}
+	}
+}
+
 func (c *Client) DeleteSegment(projectID, segmentID int64) error {
 	url := fmt.Sprintf("%s/projects/%d/segments/%d/", c.baseURL, projectID, segmentID)
 
