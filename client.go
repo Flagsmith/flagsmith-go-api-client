@@ -132,7 +132,44 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 		return nil, err
 	}
 	feature.ProjectUUID = project.UUID
+
+	// `features/get-by-uuid/` is served by CreateFeatureSerializer, which omits
+	// metadata (see api/features/views.py::get_feature_by_uuid), so it has to be read
+	// from the project scoped retrieve endpoint instead.
+	// TODO: drop this once get_feature_by_uuid returns metadata.
+	if feature.ID != nil {
+		metadata, err := c.getFeatureMetadata(*feature.ProjectID, *feature.ID)
+		if err != nil {
+			return nil, err
+		}
+		feature.Metadata = metadata
+	}
+
 	return &feature, nil
+}
+
+// getFeatureMetadata reads just the metadata of a feature from the project scoped
+// retrieve endpoint.
+//
+// It decodes into an anonymous struct rather than a Feature so that the response cannot
+// overwrite fields the caller has already populated.
+func (c *Client) getFeatureMetadata(projectID, featureID int64) (*[]Metadata, error) {
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, featureID)
+	result := struct {
+		Metadata *[]Metadata `json:"metadata"`
+	}{}
+
+	resp, err := c.client.R().SetResult(&result).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature metadata: %s", resp)
+	}
+
+	return result.Metadata, nil
 }
 
 func (c *Client) CreateFeature(feature *Feature) error {
