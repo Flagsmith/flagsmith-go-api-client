@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -14,13 +15,24 @@ type Client struct {
 	master_api_key string
 	baseURL        string
 	client         *resty.Client
+
+	// Resolvers are cached because building one costs three requests and callers need
+	// one per entity they write. Keyed on project and entity, and guarded by
+	// resolverMu since callers such as the Terraform provider work concurrently.
+	resolverMu    sync.Mutex
+	resolverCache map[string]*MetadataFieldResolver
 }
 
 func NewClient(masterAPIKey string, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = BaseAPIURL
 	}
-	c := &Client{master_api_key: masterAPIKey, baseURL: baseURL, client: resty.New()}
+	c := &Client{
+		master_api_key: masterAPIKey,
+		baseURL:        baseURL,
+		client:         resty.New(),
+		resolverCache:  map[string]*MetadataFieldResolver{},
+	}
 	c.client.SetHeaders(map[string]string{
 		"Accept":        "application/json",
 		"Content-type":  "application/json",
@@ -132,7 +144,42 @@ func (c *Client) GetFeature(featureUUID string) (*Feature, error) {
 		return nil, err
 	}
 	feature.ProjectUUID = project.UUID
+
+	// `features/get-by-uuid/` omits metadata, so it has to be read
+	// from the project scoped retrieve endpoint instead.
+	if feature.ID != nil {
+		metadata, err := c.getFeatureMetadata(*feature.ProjectID, *feature.ID)
+		if err != nil {
+			return nil, err
+		}
+		feature.Metadata = metadata
+	}
+
 	return &feature, nil
+}
+
+// getFeatureMetadata reads just the metadata of a feature from the project scoped
+// retrieve endpoint.
+//
+// It decodes into an anonymous struct rather than a Feature so that the response cannot
+// overwrite fields the caller has already populated.
+func (c *Client) getFeatureMetadata(projectID, featureID int64) (*[]Metadata, error) {
+	url := fmt.Sprintf("%s/projects/%d/features/%d/", c.baseURL, projectID, featureID)
+	result := struct {
+		Metadata *[]Metadata `json:"metadata"`
+	}{}
+
+	resp, err := c.client.R().SetResult(&result).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("flagsmithapi: Error getting feature metadata: %s", resp)
+	}
+
+	return result.Metadata, nil
 }
 
 func (c *Client) CreateFeature(feature *Feature) error {

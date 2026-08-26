@@ -35,17 +35,18 @@ type FeatureMultivariateOption struct {
 }
 
 type Feature struct {
-	Name           string   `json:"name"`
-	UUID           string   `json:"uuid,omitempty"`
-	ID             *int64   `json:"id,omitempty"`
-	Type           *string  `json:"type,omitempty"`
-	Description    *string  `json:"description,omitempty"`
-	InitialValue   string   `json:"initial_value,omitempty"`
-	DefaultEnabled bool     `json:"default_enabled,omitempty"`
-	IsArchived     bool     `json:"is_archived,omitempty"`
-	Owners         *[]int64 `json:"owners,omitempty"`
-	GroupOwners    *[]int64 `json:"group_owners,omitempty"`
-	Tags           []int64  `json:"tags"`
+	Name           string      `json:"name"`
+	UUID           string      `json:"uuid,omitempty"`
+	ID             *int64      `json:"id,omitempty"`
+	Type           *string     `json:"type,omitempty"`
+	Description    *string     `json:"description,omitempty"`
+	InitialValue   string      `json:"initial_value,omitempty"`
+	DefaultEnabled bool        `json:"default_enabled,omitempty"`
+	IsArchived     bool        `json:"is_archived,omitempty"`
+	Owners         *[]int64    `json:"owners,omitempty"`
+	GroupOwners    *[]int64    `json:"group_owners,omitempty"`
+	Tags           []int64     `json:"tags"`
+	Metadata       *[]Metadata `json:"metadata,omitempty"`
 
 	ProjectUUID string `json:"-"`
 	ProjectID   *int64 `json:"project,omitempty"`
@@ -71,6 +72,7 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 		GroupOwners    []groupOwner `json:"group_owners,omitempty"`
 		ProjectID      *int64       `json:"project,omitempty"`
 		Tags           []int64      `json:"tags"`
+		Metadata       *[]Metadata  `json:"metadata,omitempty"`
 	}
 
 	err := json.Unmarshal(data, &obj)
@@ -89,6 +91,7 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 	f.IsArchived = obj.IsArchived
 	f.ProjectID = obj.ProjectID
 	f.Tags = obj.Tags
+	f.Metadata = obj.Metadata
 	if obj.Owners != nil {
 		f.Owners = &[]int64{}
 		for _, o := range obj.Owners {
@@ -207,14 +210,15 @@ type Rule struct {
 }
 
 type Segment struct {
-	ID          *int64  `json:"id,omitempty"`
-	UUID        string  `json:"uuid,omitempty"`
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	ProjectID   *int64  `json:"project"`
-	ProjectUUID string  `json:"-"`
-	FeatureID   *int64  `json:"feature,omitempty"`
-	Rules       []Rule  `json:"rules"`
+	ID          *int64      `json:"id,omitempty"`
+	UUID        string      `json:"uuid,omitempty"`
+	Name        string      `json:"name"`
+	Description *string     `json:"description,omitempty"`
+	ProjectID   *int64      `json:"project"`
+	ProjectUUID string      `json:"-"`
+	FeatureID   *int64      `json:"feature,omitempty"`
+	Rules       []Rule      `json:"rules"`
+	Metadata    *[]Metadata `json:"metadata,omitempty"`
 }
 
 type FeatureSegment struct {
@@ -239,6 +243,8 @@ type Environment struct {
 	HideSensitiveData                 bool   `json:"hide_sensitive_data,omitempty"`
 	UseIdentityCompositeKeyForHashing bool   `json:"use_identity_composite_key_for_hashing,omitempty"`
 	MinimumChangeRequestApprovals     int64  `json:"minimum_change_request_approvals,omitempty"`
+
+	Metadata *[]Metadata `json:"metadata,omitempty"`
 }
 
 type Tag struct {

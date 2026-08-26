@@ -2,6 +2,7 @@ package flagsmithapi
 
 import (
 	"fmt"
+	"strings"
 )
 
 type FeatureNotFoundError struct {
@@ -18,6 +19,39 @@ type FeatureMVOptionNotFoundError struct {
 }
 type UserNotFoundError struct {
 	email string
+}
+
+type MetadataFieldNotFoundError struct {
+	Name       string
+	Entity     string
+	KnownNames []string
+}
+type MetadataFieldNotBoundError struct {
+	Name   string
+	Entity string
+}
+type MetadataFieldInvalidValueError struct {
+	Name      string
+	FieldType string
+	Value     string
+	Reason    string
+}
+
+func (e MetadataFieldNotFoundError) Error() string {
+	if len(e.KnownNames) == 0 {
+		return fmt.Sprintf("flagsmithapi: no custom fields are enabled for %ss in this project", e.Entity)
+	}
+	return fmt.Sprintf("flagsmithapi: no custom field named '%s' is available for %ss in this project (available: %s)",
+		e.Name, e.Entity, strings.Join(e.KnownNames, ", "))
+}
+
+func (e MetadataFieldNotBoundError) Error() string {
+	return fmt.Sprintf("flagsmithapi: the custom field '%s' exists but is not enabled for %ss",
+		e.Name, e.Entity)
+}
+
+func (e MetadataFieldInvalidValueError) Error() string {
+	return fmt.Sprintf("flagsmithapi: invalid value for custom field '%s': %s", e.Name, e.Reason)
 }
 
 func (e FeatureNotFoundError) Error() string {
